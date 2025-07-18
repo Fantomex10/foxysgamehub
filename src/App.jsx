@@ -1,28 +1,24 @@
-/*
-================================================================================
-|
-| FILE: src/App.jsx
-|
-| DESCRIPTION: The Conductor.
-| - Manages state for all primary UI panels (Profile, Menu, Options).
-| - Renders a consistent Header and MenuPanel across all screens.
-| - Fetches `isSpectator` state to provide the correct view.
-|
-================================================================================
-*/
+// =================================================================================
+// FILE: src/App.jsx (UPDATED)
+// DESC: The import and usage of the `<GlobalStyles />` component have been
+//       removed, as these styles are now handled by `src/index.css`.
+// =================================================================================
 import React, { useState, useEffect, useContext } from 'react';
 import { FirebaseProvider, FirebaseContext } from './context/FirebaseProvider';
 import { UiProvider, useUi } from './context/UiProvider';
+import { ModalProvider, useModal } from './context/ModalProvider';
 import { useGameSession } from './hooks/useGameSession';
 import SplashScreen from './components/SplashScreen';
 import LoadingSpinner from './components/ui/LoadingSpinner';
-import GlobalStyles from './components/ui/GlobalStyles';
+// REMOVED: import GlobalStyles from './components/ui/GlobalStyles';
 import GameLobby from './components/GameLobby';
-import GameRoom from './games/crazy_eights/GameRoom';
 import Header from './components/ui/Header';
 import ProfilePanel from './components/ui/ProfilePanel';
 import MenuPanel from './components/ui/MenuPanel';
 import OptionsModal from './components/ui/OptionsModal';
+import ConfirmDialog from './components/ui/ConfirmDialog';
+
+import { gameRegistry } from './games';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -54,6 +50,7 @@ class ErrorBoundary extends React.Component {
 const AppContent = () => {
     const { isAuthReady, userId, error: authError } = useContext(FirebaseContext);
     const { uiScale } = useUi();
+    const { showConfirm } = useModal();
     const {
         gameData,
         currentGameId,
@@ -62,7 +59,7 @@ const AppContent = () => {
         error: gameError,
         createGame,
         joinGame,
-        goToLobby,
+        returnToLobby,
         quitGame,
     } = useGameSession();
 
@@ -82,17 +79,24 @@ const AppContent = () => {
         document.body.classList.toggle('large-ui', uiScale === 'large');
     }, [uiScale]);
 
-    const handleGoToLobby = () => {
+    const handleReturnToLobby = () => {
         setIsMenuOpen(false);
-        goToLobby();
+        returnToLobby();
     };
 
     const handleQuitGame = () => {
-        const confirmQuit = window.confirm("Are you sure you want to quit the game? This will forfeit the match and cannot be undone.");
-        if (confirmQuit) {
-            setIsMenuOpen(false);
-            quitGame();
-        }
+        showConfirm({
+            title: "Quit Game?",
+            message: "Are you sure you want to quit? This will forfeit the match and cannot be undone.",
+            onConfirm: async () => {
+                setIsMenuOpen(false);
+                try {
+                    await quitGame();
+                } catch (err) {
+                    console.error("Gracefully handling quitGame error:", err);
+                }
+            }
+        });
     };
 
     const handleOpenOptions = () => {
@@ -106,7 +110,14 @@ const AppContent = () => {
         }
 
         if (isInGame && gameData) {
-            return <GameRoom gameData={gameData} isSpectator={isSpectator} />;
+            const gameType = gameData.gameType;
+            const Game = gameRegistry[gameType]?.GameComponent;
+
+            if (Game) {
+                return <Game gameData={gameData} isSpectator={isSpectator} returnToLobby={returnToLobby} />;
+            } else {
+                return <div className="text-red-500 p-4">Error: Unknown game type "{gameType}".</div>;
+            }
         }
 
         return <GameLobby onCreateGame={createGame} onJoinGame={joinGame} />;
@@ -119,7 +130,7 @@ const AppContent = () => {
 
     return (
         <div className="min-h-screen w-full bg-gray-900 text-white font-sans flex flex-col">
-            <GlobalStyles />
+            {/* REMOVED: <GlobalStyles /> is no longer needed */}
             <Header
                 isInGame={isInGame}
                 gameData={gameData}
@@ -131,7 +142,7 @@ const AppContent = () => {
                 isOpen={isMenuOpen}
                 isInGame={isInGame}
                 onClose={() => setIsMenuOpen(false)}
-                onGoToLobby={handleGoToLobby}
+                onGoToLobby={handleReturnToLobby}
                 onOpenOptions={handleOpenOptions}
                 onQuitGame={handleQuitGame}
             />
@@ -161,7 +172,10 @@ const AppContent = () => {
 const App = () => (
     <FirebaseProvider>
         <UiProvider>
-            <AppContent />
+            <ModalProvider>
+                <AppContent />
+                <ConfirmDialog />
+            </ModalProvider>
         </UiProvider>
     </FirebaseProvider>
 );

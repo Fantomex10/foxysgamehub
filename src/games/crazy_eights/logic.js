@@ -1,16 +1,6 @@
 // =================================================================================
-// FILE: src/gameLogic.js
+// FILE: src/games/crazy_eights/logic.js
 // =================================================================================
-// This file contains the pure, state-agnostic game logic for Crazy Eights.
-// It has no dependency on React or Firebase.
-// =================================================================================
-
-/**
- * Creates and shuffles a deck of cards. For more than 5 players, it combines
- * and shuffles two decks.
- * @param {number} playerCount - The number of players in the game.
- * @returns {Array<Object>} An array of card objects.
- */
 export const createShuffledDeck = (playerCount = 4) => {
     const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
     const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
@@ -58,12 +48,14 @@ export const getNextTurn = (currentTurnId, players, gameDirection) => {
     return activePlayers[nextIndex].id;
 };
 
-export const applyCrazyEightsCardLogic = (card, { players, gameDirection, currentTurn, playersHands, drawPile }) => {
+export const applyCrazyEightsCardLogic = (card, { players, gameDirection, currentTurn, playersHands, drawPile, gameOptions }) => {
     let nextTurn = getNextTurn(currentTurn, players, gameDirection);
     let newGameDirection = gameDirection;
     let newPlayersHands = { ...playersHands };
     let newDrawPile = [...drawPile];
     let gameMessage = "";
+
+    const options = gameOptions || { stackTwos: true, jackSkips: true };
 
     switch (card.rank) {
         case 'A':
@@ -72,13 +64,14 @@ export const applyCrazyEightsCardLogic = (card, { players, gameDirection, curren
             gameMessage = "Direction reversed!";
             break;
         case 'J':
-            const skippedPlayerId = getNextTurn(currentTurn, players, newGameDirection);
-            nextTurn = getNextTurn(skippedPlayerId, players, newGameDirection);
-            const skippedPlayer = players.find(p => p.id === skippedPlayerId);
-            gameMessage = `${skippedPlayer?.name || 'Next player'} is skipped!`;
-            // UX Improvement: Add a special message for 2-player games
-            if (players.filter(p => p.status !== 'offline').length === 2) {
-                gameMessage += ` Play again.`;
+            if (options.jackSkips) {
+                const skippedPlayerId = getNextTurn(currentTurn, players, newGameDirection);
+                nextTurn = getNextTurn(skippedPlayerId, players, newGameDirection);
+                const skippedPlayer = players.find(p => p.id === skippedPlayerId);
+                gameMessage = `${skippedPlayer?.name || 'Next player'} is skipped!`;
+                if (players.filter(p => p.status !== 'offline').length === 2) {
+                    gameMessage += ` Play again.`;
+                }
             }
             break;
         case '2':

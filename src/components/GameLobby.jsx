@@ -1,11 +1,12 @@
 // =================================================================================
 // FILE: src/components/GameLobby.jsx
-// DESCRIPTION: Adds the "Rejoin Last Game" feature.
 // =================================================================================
 import React, { useState, useEffect, useContext } from 'react';
 import { FirebaseContext } from '../context/FirebaseProvider';
 import { useGameList } from '../hooks/useGameList';
 import LoadingSpinner from './ui/LoadingSpinner';
+import { gameRegistry } from '../games';
+import * as gameService from '../services/gameService';
 
 const GameLobby = ({ onCreateGame, onJoinGame }) => {
     const { db, userId } = useContext(FirebaseContext);
@@ -18,13 +19,16 @@ const GameLobby = ({ onCreateGame, onJoinGame }) => {
     const [message, setMessage] = useState('');
     const [activeTab, setActiveTab] = useState('start');
     const [lastGameId, setLastGameId] = useState(null);
+    const [gameOptions, setGameOptions] = useState({
+        stackTwos: true,
+        jackSkips: true,
+    });
 
     useEffect(() => {
         if (playerName) localStorage.setItem('foxytcg-player-name', playerName);
     }, [playerName]);
 
     useEffect(() => {
-        // Check for a game to rejoin when the lobby loads
         const gameIdToRejoin = localStorage.getItem('foxytcg-lastGameId');
         if (gameIdToRejoin) {
             setLastGameId(gameIdToRejoin);
@@ -43,6 +47,7 @@ const GameLobby = ({ onCreateGame, onJoinGame }) => {
             gameName: gameName.trim() || `${playerName}'s Game`,
             gameType,
             maxPlayers: Number(maxPlayers),
+            gameOptions,
         });
     };
 
@@ -77,6 +82,18 @@ const GameLobby = ({ onCreateGame, onJoinGame }) => {
             handleJoinGame(lastGameId);
         }
     };
+
+    const handleDeleteGame = async (gameId) => {
+        if (window.confirm("Are you sure you want to delete this lobby?")) {
+            try {
+                await gameService.deleteGame(db, gameId, userId);
+            } catch (error) {
+                setMessage(error.message);
+            }
+        }
+    };
+
+    const OptionsComponent = gameRegistry[gameType]?.OptionsComponent;
 
     return (
         <div className="w-full h-full flex flex-col items-center justify-start">
@@ -126,6 +143,7 @@ const GameLobby = ({ onCreateGame, onJoinGame }) => {
                                 </select>
                             </div>
                         </div>
+                        {OptionsComponent && <OptionsComponent options={gameOptions} setOptions={setGameOptions} />}
                         <button onClick={handleCreateGame} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition transform hover:scale-105 text-sm">Create Game</button>
                     </div>
                 )}
@@ -151,9 +169,12 @@ const GameLobby = ({ onCreateGame, onJoinGame }) => {
                                                 <p className="text-purple-300 font-bold text-base leading-tight">{game.gameName}</p>
                                                 <span className="font-mono text-yellow-300 text-xs leading-none">#{game.joinCode || 'N/A'}</span>
                                             </div>
-                                            <div className="flex flex-col items-end gap-1">
+                                            <div className="flex items-center gap-2">
                                                 <span className="text-gray-400 text-base font-semibold whitespace-nowrap">({game.players.length}/{game.maxPlayers})</span>
-                                                <button onClick={() => handleJoinGame(game.id)} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-1 px-2 rounded-lg text-xs w-full">Join</button>
+                                                {game.host === userId && (
+                                                    <button onClick={() => handleDeleteGame(game.id)} className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-2 rounded-lg text-xs">Delete</button>
+                                                )}
+                                                <button onClick={() => handleJoinGame(game.id)} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-1 px-2 rounded-lg text-xs w-20">Join</button>
                                             </div>
                                         </div>
                                         <p className="text-xs text-gray-400 leading-tight">{game.gameType} • Host: {game.players.find(p => p.id === game.host)?.name || '...'}</p>

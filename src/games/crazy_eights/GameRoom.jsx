@@ -1,25 +1,37 @@
-/*
-================================================================================
-|
-| FILE: src/games/crazy_eights/GameRoom.jsx
-|
-| DESCRIPTION: The Game Arena.
-| - Renders the correct view based on game status (Waiting, Playing, Finished).
-| - Renders a dedicated Spectator view with a "Join Game" button.
-| - Features a new "Ready for Rematch" system on the game over screen.
-|
-================================================================================
-*/
-import React, { useContext, useState } from 'react';
+// =================================================================================
+// FILE: src/games/crazy_eights/GameRoom.jsx
+// =================================================================================
+import React, { useContext, useState, useEffect } from 'react';
 import { FirebaseContext } from '../../context/FirebaseProvider';
+import { useModal } from '../../context/ModalProvider'; // +++ ADDED
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import CrazyEightsTable from './components/CrazyEightsTable';
 import WaitingRoom from './components/WaitingRoom';
 import * as gameService from '../../services/gameService';
 
-const GameRoom = ({ gameData, isSpectator }) => {
+const GameRoom = ({ gameData, isSpectator, returnToLobby }) => {
     const { db, userId } = useContext(FirebaseContext);
+    const { showConfirm } = useModal(); // +++ ADDED
     const [rematchError, setRematchError] = useState(null);
+    const [gameOverAcknowledged, setGameOverAcknowledged] = useState(false); // +++ ADDED
+
+    // +++ ADDED: Effect to show winner announcement
+    useEffect(() => {
+        if (gameData.status === 'finished' && !gameOverAcknowledged) {
+            const winner = gameData.players.find(p => p.id === gameData.winner) || { name: 'Someone' };
+            showConfirm({
+                title: "Game Over!",
+                message: `${winner.name} has won the game!`,
+                onConfirm: () => setGameOverAcknowledged(true),
+                onCancel: () => setGameOverAcknowledged(true) // Acknowledge on cancel too
+            });
+        }
+        // Reset on new game
+        if (gameData.status !== 'finished' && gameOverAcknowledged) {
+            setGameOverAcknowledged(false);
+        }
+    }, [gameData.status, gameData.winner, gameOverAcknowledged, showConfirm]);
+
 
     if (!gameData || !gameData.status) {
         return <div className="w-full h-full flex items-center justify-center"><LoadingSpinner message="Loading Game..." /></div>;
@@ -73,14 +85,17 @@ const GameRoom = ({ gameData, isSpectator }) => {
             case 'playing':
                 return <CrazyEightsTable gameData={gameData} gameId={gameData.id} userId={userId} isSpectator={false} onUserActivity={() => {}} />;
             case 'finished':
-                const winner = gameData.players.find(p => p.id === gameData.winner) || { name: 'Someone' };
+                // +++ MODIFIED: Don't render the rematch screen until the winner modal is acknowledged
+                if (!gameOverAcknowledged) {
+                    return <div className="w-full h-full flex items-center justify-center"><LoadingSpinner message="Game finishing..." /></div>;
+                }
+
                 const amIReadyForRematch = gameData.playersReadyForNextGame?.includes(userId);
                 const allPlayersReady = gameData.players.length > 0 && gameData.playersReadyForNextGame?.length === gameData.players.length;
 
                 return (
                     <div className="w-full max-w-md mx-auto p-6 bg-gray-800 rounded-2xl shadow-2xl border-2 border-yellow-500 flex flex-col items-center text-center">
-                        <h2 className="text-3xl font-bold text-yellow-300 mb-2">Game Over!</h2>
-                        <p className="text-lg text-white mb-6">{winner.name} wins the game!</p>
+                        <h2 className="text-3xl font-bold text-yellow-300 mb-4">Play Again?</h2>
 
                         <div className="w-full mb-6">
                             <h3 className="text-lg font-semibold text-purple-200 mb-3">Rematch Status</h3>
@@ -110,6 +125,10 @@ const GameRoom = ({ gameData, isSpectator }) => {
                                 {allPlayersReady ? 'Start Rematch' : 'Waiting for Players...'}
                             </button>
                         )}
+
+                        <button onClick={returnToLobby} className="w-full mt-3 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg">
+                            Return to Lobby
+                        </button>
                     </div>
                 );
             default:

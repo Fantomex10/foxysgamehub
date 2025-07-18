@@ -1,14 +1,6 @@
-/*
-================================================================================
-|
-| FILE: src/games/crazy_eights/components/CrazyEightsTable.jsx
-|
-| DESCRIPTION: The new game table layout.
-| - Implements the three-column scoreboard layout at the top.
-| - Renders the PlayerHand only for active players, not spectators.
-|
-================================================================================
-*/
+// =================================================================================
+// FILE: src/games/crazy_eights/components/CrazyEightsTable.jsx
+// =================================================================================
 import React, { useState, useEffect, useContext, memo, useCallback } from 'react';
 import { doc, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
 import { DndContext, DragOverlay, useDroppable, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
@@ -70,14 +62,15 @@ const CrazyEightsTable = ({ gameData, gameId, userId, isSpectator, onUserActivit
         if (isSpectator) return;
         onUserActivity();
         const appId = getAppId();
-        const gameDocRef = doc(db, `artifacts/${appId}/public/data/crazy_eights_games`, gameId);
+        const gameDocRef = doc(db, `artifacts/${appId}/public/data/games`, gameId);
         try {
             const handAfterPlay = gameData.playersHands[userId].filter(c => !(c.rank === card.rank && c.suit === card.suit));
             const gameStateForLogic = {
                 players: gameData.players, gameDirection: gameData.gameDirection,
                 currentTurn: gameData.currentTurn,
                 playersHands: { ...gameData.playersHands, [userId]: handAfterPlay },
-                drawPile: [...gameData.drawPile]
+                drawPile: [...gameData.drawPile],
+                gameOptions: gameData.gameOptions // Pass options to logic
             };
             const logicResult = applyCrazyEightsCardLogic(card, gameStateForLogic);
             const currentPlayer = gameData.players.find(p => p.id === userId);
@@ -109,10 +102,7 @@ const CrazyEightsTable = ({ gameData, gameId, userId, isSpectator, onUserActivit
     const handlePlayCard = useCallback(async (card) => {
         if (!isMyTurn || isSpectator) return;
         const topCard = gameData.discardPile[gameData.discardPile.length - 1];
-
-        // BUG FIX: If currentSuit is null (e.g., an 8 started the game), any card is valid.
         const isValidMove = !gameData.currentSuit || card.rank === '8' || card.rank === topCard.rank || card.suit === gameData.currentSuit;
-
         if (!isValidMove) {
             const message = gameData.currentSuit
                 ? `Invalid move! Play a ${gameData.currentSuit} or a ${topCard.rank}.`
@@ -133,7 +123,7 @@ const CrazyEightsTable = ({ gameData, gameId, userId, isSpectator, onUserActivit
         if (!isMyTurn || isSpectator) return;
         setIsTurnLocked(true); onUserActivity();
         const appId = getAppId();
-        const gameDocRef = doc(db, `artifacts/${appId}/public/data/crazy_eights_games`, gameId);
+        const gameDocRef = doc(db, `artifacts/${appId}/public/data/games`, gameId);
         let { drawPile, discardPile, players, gameDirection } = gameData;
         if (drawPile.length === 0) {
             if (discardPile.length <= 1) {
