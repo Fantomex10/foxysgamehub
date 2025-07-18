@@ -1,0 +1,21 @@
+{
+  "name": "Foxy's Family Card Games",
+  "short_name": "FoxyCards",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#4c1d95",
+  "theme_color": "#4c1d95",
+  "icons": [
+    {
+      "src": "/foxyfcg_small.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/foxyfcg_small.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
+
