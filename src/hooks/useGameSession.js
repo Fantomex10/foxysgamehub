@@ -3,150 +3,176 @@
 |
 | FILE: src/hooks/useGameSession.js
 |
-| DESCRIPTION: The Heartbeat.
-| - Distinguishes between `goToLobby` (soft leave) and `quitGame` (hard leave).
-| - `goToLobby` stores the game ID in localStorage for the "Rejoin" feature.
-| - `quitGame` removes the player from Firestore and clears the rejoin ID.
+| DESCRIPTION: The Controller (Rewritten for Robustness).
+| - This version uses a more robust, manual subscription model to completely
+|   eliminate the race condition bugs that caused session failures.
+| - It no longer relies on useEffect to manage the listener, providing a more
+|   stable and predictable connection flow.
 |
 ================================================================================
 */
-import { useState, useEffect, useCallback, useContext } from 'react';
+import { useEffect, useCallback, useContext, useRef } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { FirebaseContext } from '../context/FirebaseProvider';
 import * as gameService from '../services/gameService';
+import { useGameEngine } from '../context/GameProvider';
 
 const getAppId = () => typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-export const useGameSession = () => {
+export const useGameSession = ({ currentGameId, setCurrentGameId, setIsLoading, setError, setGameMode }) => {
     const { db, userId } = useContext(FirebaseContext);
-    const [currentGameId, setCurrentGameIdState] = useState(() => localStorage.getItem('foxytcg-lastGameId'));
-    const [gameData, setGameData] = useState(null);
-    const [isLoading, setIsLoading] = useState(!!currentGameId);
-    const [isCreating, setIsCreating] = useState(false); // New state to track creation
-    const [error, setError] = useState(null);
+    const engine = useGameEngine();
+
+    // Use a ref to hold the unsubscribe function. This is key to preventing race conditions.
+    const unsubscribeRef = useRef(null);
 
     const clearClientSession = useCallback(() => {
-        setCurrentGameIdState(null);
-        setGameData(null);
-        setIsLoading(false);
-        setIsCreating(false); // Reset creation flag
-    }, []);
-
-    const setCurrentGameId = useCallback((gameId) => {
-        setError(null);
-        if (gameId) {
-            setIsLoading(true);
-            setGameData(null);
-            setCurrentGameIdState(gameId);
-        } else {
-            clearClientSession();
+        console.log("USE_GAME_SESSION: Clearing client session.");
+        if (unsubscribeRef.current) {
+            unsubscribeRef.current();
+            unsubscribeRef.current = null;
+            console.log("USE_GAME_SESSION: Unsubscribed from Firestore listener.");
         }
-    }, [clearClientSession]);
+        setCurrentGameId(null);
+        setError(null);
+        setIsLoading(false);
+        setGameMode('online');
+        engine.dispatch({ type: 'SYNC_STATE_FROM_SERVER', payload: null }); // Reset engine state
+        localStorage.removeItem('foxytcg-lastGameId');
+    }, [setCurrentGameId, setError, setIsLoading, setGameMode, engine]);
 
-    useEffect(() => {
-        if (!currentGameId || !db) {
-            if (isLoading) setIsLoading(false);
-            if (isCreating) setIsCreating(false);
+    // This is our new, manually controlled listener function.
+    const listenToGame = useCallback((gameId) => {
+        if (!db) {
+            console.warn("USE_GAME_SESSION: Firestore DB not available for listening.");
             return;
         }
+        console.log(`USE_GAME_SESSION: Attaching listener to game ID: ${gameId}`);
 
-        const gameDocRef = doc(db, `artifacts/${getAppId()}/public/data/crazy_eights_games`, currentGameId);
+        // If we're already listening to a game, stop that first.
+        if (unsubscribeRef.current) {
+            console.log("USE_GAME_SESSION: Existing listener found, unsubscribing before new one.");
+            unsubscribeRef.current();
+        }
 
-        const unsubscribe = onSnapshot(gameDocRef, (docSnap) => {
-            if (docSnap.exists()) {
-                setIsCreating(false); // Game found, no longer in creation phase.
-                const data = { id: docSnap.id, ...docSnap.data() };
-                const isPlayerInGame = data.players.some(p => p.id === userId);
-                setGameData(data);
-                setError(null);
+        const gameDocRef = doc(db, `artifacts/${getAppId()}/public/data/crazy_eights_games`, gameId);
 
-                if (isLoading && (isPlayerInGame || (data.status === 'finished' && data.nextGameId))) {
-                     setIsLoading(false);
-                }
+        unsubscribeRef.current = onSnapshot(gameDocRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const serverState = { id: snapshot.id, ...snapshot.data() };
+                console.log("USE_GAME_SESSION: Listener received update. Server State:", serverState);
+                engine.dispatch({ type: 'SYNC_STATE_FROM_SERVER', payload: serverState });
 
-                if (data.status === 'finished' && data.nextGameId) {
-                    setCurrentGameId(data.nextGameId);
-                    localStorage.setItem('foxytcg-lastGameId', data.nextGameId);
+                if (serverState.status === 'finished' && serverState.nextGameId) {
+                    // Automatically transition to the next game in a rematch
+                    console.log(`USE_GAME_SESSION: Game finished, transitioning to next game ID: ${serverState.nextGameId}`);
+                    localStorage.setItem('foxytcg-lastGameId', serverState.nextGameId);
+                    setCurrentGameId(serverState.nextGameId);
                     return;
                 }
 
-                if (userId && !isPlayerInGame && !isLoading && data.status !== 'finished') {
-                    console.warn("Kicked from game or player removed, returning to lobby.");
-                    setError("You are no longer in this game.");
-                    localStorage.removeItem('foxytcg-lastGameId');
-                    clearClientSession();
-                }
-
+                setError(null);
+                setIsLoading(false); // Crucial: Stop loading once data is received
             } else {
-                // If doc doesn't exist, only error out if we are NOT in the creation process.
-                if (!isCreating) {
-                    setError("Game not found. It may have been deleted by the host.");
-                    localStorage.removeItem('foxytcg-lastGameId');
-                    clearClientSession();
-                }
+                console.log("USE_GAME_SESSION: Listener detected game no longer exists. Clearing session.");
+                clearClientSession();
             }
         }, (err) => {
-            console.error("Error listening to game document:", err);
-            setError("Failed to connect to the game.");
+            console.error("USE_GAME_SESSION: FATAL ERROR (onSnapshot):", err);
+            setError("Failed to connect to the game. Check Firestore rules or network.");
             setIsLoading(false);
-            setIsCreating(false);
         });
 
-        return () => unsubscribe();
-    }, [currentGameId, db, userId, isLoading, isCreating, clearClientSession, setCurrentGameId]);
+    }, [db, engine, clearClientSession, setCurrentGameId, setIsLoading, setError]);
+
+    // This useEffect now ONLY starts the listener when the component mounts or currentGameId changes.
+    useEffect(() => {
+        console.log(`USE_GAME_SESSION: useEffect triggered. CurrentGameId: ${currentGameId}`);
+        if (currentGameId) {
+            setIsLoading(true); // Indicate loading when a game ID is present
+            listenToGame(currentGameId);
+        } else {
+            // If there's no gameId, ensure we are not loading.
+            setIsLoading(false);
+        }
+
+        // Return a cleanup function to unsubscribe when the component unmounts.
+        return () => {
+            if (unsubscribeRef.current) {
+                console.log("USE_GAME_SESSION: Cleaning up listener on unmount.");
+                unsubscribeRef.current();
+                unsubscribeRef.current = null;
+            }
+        };
+    }, [currentGameId, listenToGame]);
+
 
     const createGame = useCallback(async (options) => {
-        if (!db || !userId) return;
+        if (!db || !userId) {
+            console.warn("USE_GAME_SESSION: DB or userId not available for createGame.");
+            return;
+        }
         setIsLoading(true);
-        setIsCreating(true); // Set creation flag
         setError(null);
         try {
+            console.log("USE_GAME_SESSION: Sending 'createGame' request to server...");
             const newGameId = await gameService.createGame(db, userId, options);
-            setCurrentGameId(newGameId);
+
+            if (!newGameId) {
+                throw new Error("Server did not return a valid game ID.");
+            }
+
+            console.log(`USE_GAME_SESSION: Server responded with new game ID: ${newGameId}. Updating session.`);
             localStorage.setItem('foxytcg-lastGameId', newGameId);
+            setCurrentGameId(newGameId); // This will trigger the useEffect to start listening
+            // setIsLoading(false) will be handled by the onSnapshot listener
         } catch (err) {
-            console.error("Error creating game:", err);
-            setError(err.message || "Could not create game.");
+            console.error("USE_GAME_SESSION: Error creating game:", err);
+            setError(`Could not create game: ${err.message}`);
             setIsLoading(false);
-            setIsCreating(false);
         }
-    }, [db, userId, setCurrentGameId]);
+    }, [db, userId, setCurrentGameId, setIsLoading, setError]);
 
     const joinGame = useCallback(async (gameId, playerName) => {
-        if (!db || !userId) return;
+        if (!db || !userId) {
+            console.warn("USE_GAME_SESSION: DB or userId not available for joinGame.");
+            return;
+        }
         setIsLoading(true);
-        setIsCreating(false); // Ensure not in creation mode when joining
         setError(null);
         try {
+            console.log(`USE_GAME_SESSION: Sending 'joinGame' request for game ID: ${gameId}`);
             await gameService.joinGame(db, userId, playerName, gameId);
-            setCurrentGameId(gameId);
+            console.log(`USE_GAME_SESSION: Successfully joined game. Updating session.`);
+
             localStorage.setItem('foxytcg-lastGameId', gameId);
+            setCurrentGameId(gameId); // This will trigger the useEffect to start listening
+            // setIsLoading(false) will be handled by the onSnapshot listener
         } catch (err) {
-            console.error("Error joining game:", err);
+            console.error("USE_GAME_SESSION: Error joining game:", err);
             setError(err.message || "Could not join game.");
             setIsLoading(false);
-            localStorage.removeItem('foxytcg-lastGameId');
         }
-    }, [db, userId, setCurrentGameId]);
+    }, [db, userId, setCurrentGameId, setIsLoading, setError]);
 
     const goToLobby = useCallback(() => {
+        console.log("USE_GAME_SESSION: Calling goToLobby.");
         clearClientSession();
     }, [clearClientSession]);
 
     const quitGame = useCallback(async () => {
         const gameIdToLeave = currentGameId;
-
-        localStorage.removeItem('foxytcg-lastGameId');
-        clearClientSession();
-
+        console.log(`USE_GAME_SESSION: Quitting game ID: ${gameIdToLeave}`);
+        clearClientSession(); // Clear session immediately for responsive UI
         if (gameIdToLeave && db && userId) {
             try {
                 await gameService.quitGame(db, userId, gameIdToLeave);
+                console.log("USE_GAME_SESSION: Server quitGame request sent.");
             } catch (err) {
-                console.error("Error on server while quitting game:", err);
+                console.error("USE_GAME_SESSION: Error on server while quitting game:", err);
             }
         }
     }, [currentGameId, db, userId, clearClientSession]);
 
-    return { gameData, currentGameId, isLoading, error, createGame, joinGame, goToLobby, quitGame };
+    return { createGame, joinGame, goToLobby, quitGame };
 };

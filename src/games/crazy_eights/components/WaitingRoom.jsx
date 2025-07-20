@@ -4,7 +4,7 @@
 // This new component serves as the pre-game staging area, fulfilling the user's
 // request for a lobby with a "Ready Up" system before the game starts.
 // =================================================================================
-import React, { useContext, useState } from 'react';
+import { useContext, useState } from 'react'; // Removed 'React' from import
 import { FirebaseContext } from '../../../context/FirebaseProvider';
 import * as gameService from '../../../services/gameService';
 import LoadingSpinner from '../../../components/ui/LoadingSpinner';
@@ -13,7 +13,10 @@ const WaitingRoom = ({ gameData }) => {
     const { db, userId } = useContext(FirebaseContext);
     const [startError, setStartError] = useState(null);
 
+    console.log(`WAITING_ROOM: Rendered. gameData status: ${gameData?.status}, gameData ID: ${gameData?.id}, userId: ${userId}`);
+
     if (!gameData || !userId) {
+        console.log("WAITING_ROOM: Showing LoadingSpinner - gameData or userId not available.");
         return <LoadingSpinner message="Entering waiting room..." />;
     }
 
@@ -23,17 +26,22 @@ const WaitingRoom = ({ gameData }) => {
     const allPlayersReady = players.length > 0 && players.length === playersReady.length;
 
     const handleReadyClick = () => {
-        // Now allows host to ready up as well
+        console.log(`WAITING_ROOM: Player ${userId} toggling ready status.`);
         gameService.setPlayerReady(db, gameId, userId, !isPlayerReady);
     };
 
     const handleStartGame = async () => {
-        if (!amIHost) return;
+        if (!amIHost) {
+            console.warn("WAITING_ROOM: Non-host tried to start game.");
+            return;
+        }
         setStartError(null); // Clear previous errors
+        console.log(`WAITING_ROOM: Host ${userId} attempting to start game ${gameId}.`);
         try {
             await gameService.startGame(db, gameId, userId);
+            console.log(`WAITING_ROOM: Host ${userId} successfully initiated startGame service call.`);
         } catch (error) {
-            console.error("Failed to start game:", error);
+            console.error("WAITING_ROOM: Failed to start game:", error);
             setStartError(error.message);
         }
     };
