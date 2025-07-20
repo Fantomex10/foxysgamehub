@@ -1,3 +1,4 @@
+
 /*
 ================================================================================
 |
@@ -7,11 +8,14 @@
 |
 ================================================================================
 */
+
 import React, { useState, useEffect, useContext } from 'react';
 import { FirebaseContext } from '../context/FirebaseProvider';
 import { useGameEngine } from '../context/GameProvider';
 import { useGameList } from '../hooks/useGameList';
 import LoadingSpinner from './ui/LoadingSpinner';
+import { gameRegistry } from '../games';
+import * as gameService from '../services/gameService';
 
 const GameLobby = ({ onCreateGame, onJoinGame, setGameMode, activeGameId }) => {
     const { db, userId } = useContext(FirebaseContext);
@@ -25,11 +29,14 @@ const GameLobby = ({ onCreateGame, onJoinGame, setGameMode, activeGameId }) => {
     const [message, setMessage] = useState('');
     const [activeTab, setActiveTab] = useState('start');
 
+
     // REMOVED: Internal lastGameId state is gone.
+
 
     useEffect(() => {
         if (playerName) localStorage.setItem('foxytcg-player-name', playerName);
     }, [playerName]);
+
 
     const { activeGames, isRefreshing, refreshGames } = useGameList(db, userId);
 
@@ -44,6 +51,7 @@ const GameLobby = ({ onCreateGame, onJoinGame, setGameMode, activeGameId }) => {
             gameName: gameName.trim() || `${playerName}'s Game`,
             gameType,
             maxPlayers: Number(maxPlayers),
+            gameOptions,
         });
     };
 
@@ -65,6 +73,7 @@ const GameLobby = ({ onCreateGame, onJoinGame, setGameMode, activeGameId }) => {
         }
     };
 
+
     const handleStartOfflineGame = () => {
         setGameMode('offline');
         engine.dispatch({
@@ -78,6 +87,7 @@ const GameLobby = ({ onCreateGame, onJoinGame, setGameMode, activeGameId }) => {
             engine.dispatch({ type: 'START_GAME' });
         }, 100);
     };
+
 
     return (
         <div className="w-full h-full flex flex-col items-center justify-start">
@@ -127,6 +137,7 @@ const GameLobby = ({ onCreateGame, onJoinGame, setGameMode, activeGameId }) => {
                                 </select>
                             </div>
                         </div>
+                        {OptionsComponent && <OptionsComponent options={gameOptions} setOptions={setGameOptions} />}
                         <button onClick={handleCreateGame} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition transform hover:scale-105 text-sm">Create Game</button>
                     </div>
                 )}
@@ -152,9 +163,10 @@ const GameLobby = ({ onCreateGame, onJoinGame, setGameMode, activeGameId }) => {
                                                 <p className="text-purple-300 font-bold text-base leading-tight">{game.gameName}</p>
                                                 <span className="font-mono text-yellow-300 text-xs leading-none">#{game.joinCode || 'N/A'}</span>
                                             </div>
-                                            <div className="flex flex-col items-end gap-1">
+                                            <div className="flex items-center gap-2">
                                                 <span className="text-gray-400 text-base font-semibold whitespace-nowrap">({game.players.length}/{game.maxPlayers})</span>
                                                 <button onClick={() => onJoinGame(game.id, playerName)} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-1 px-2 rounded-lg text-xs w-full">Join</button>
+
                                             </div>
                                         </div>
                                         <p className="text-xs text-gray-400 leading-tight">{game.gameType} • Host: {game.players.find(p => p.id === game.host)?.name || '...'}</p>

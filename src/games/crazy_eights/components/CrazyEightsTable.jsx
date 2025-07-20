@@ -1,3 +1,4 @@
+
 /*
 ================================================================================
 |
@@ -94,6 +95,7 @@ const CrazyEightsTable = ({ gameMode }) => {
     const myHand = playersHands?.[currentUserId] || [];
     const sortedHand = sortHand(myHand);
 
+
     const [activeDragId, setActiveDragId] = useState(null);
     const draggedCardData = activeDragId ? myHand.find(c => `${c.rank}-${c.suit}` === activeDragId) : null;
 
@@ -116,6 +118,7 @@ const CrazyEightsTable = ({ gameMode }) => {
         }
         drawCard();
     }, [isMyTurn, drawCard]);
+
 
 
     // FIXED: Removed processingAction check. This action is only available
