@@ -7,7 +7,7 @@ This project rapidly evolved from a single-file prototype into a feature-rich Be
 ## Key Features
 
 - **Real-time Online Multiplayer:** Create or join game lobbies for Crazy Eights.
-- **Intelligent AI Opponent:** Play offline against "Foxy AI", powered by the Google Gemini API.
+- **Intelligent AI Opponent ** COMING SOON **:** Play offline against "Foxy AI", powered by the Google Gemini API.
 - **Robust Player Presence:** Utilizes Firebase Realtime Database to track player connectivity, handling disconnects and rejoins with a 60-second grace period.
 - **Complete Crazy Eights Ruleset:** Implements special card rules for Aces (reverse), Jacks (skip), Twos (draw two), and Eights (wild card).
 - **Multi-Deck Support:** Automatically scales to use two decks for games with 5 or more players.
