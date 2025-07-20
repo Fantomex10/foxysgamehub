@@ -1,7 +1,48 @@
 // =================================================================================
-// FILE: src/games/crazy_eights/logic.js
+// FILE: src/games/crazy_eights/logic.js (Updated)
 // =================================================================================
-export const createShuffledDeck = (playerCount = 4) => {
+// This file contains the pure, state-agnostic game logic for Crazy Eights.
+// It has no dependency on React or Firebase.
+//
+// KEY CHANGE: Added the 'isValidPlay' function required by the new GameEngine.
+// =================================================================================
+
+export const name = "Crazy Eights";
+
+/**
+ * NEW FUNCTION: Checks if a card can be legally played on top of another.
+ * @param {object} cardToPlay - The card the player wants to play.
+ * @param {object} topCard - The current card on top of the discard pile.
+ * @param {string} currentSuit - The active suit (if an 8 was played).
+ * @returns {boolean} - True if the play is valid, false otherwise.
+ */
+export const isValidPlay = (cardToPlay, topCard, currentSuit) => {
+    // An 8 can be played on anything.
+    if (cardToPlay.rank === '8') {
+        return true;
+    }
+    // The card must match the active suit (set by a previous 8) or the top card's rank.
+    return cardToPlay.suit === currentSuit || cardToPlay.rank === topCard.rank;
+};
+
+/**
+ * Creates and shuffles a deck of cards. For more than 5 players, it combines
+ * and shuffles two decks.
+ * @param {number} playerCount - The number of players in the game.
+ * @returns {Array<Object>} An array of card objects.
+ */
+export const createShuffledDeck = (playerCount = 4, existingCards = []) => {
+    // If we are reshuffling, use the existing cards. Otherwise, create a new deck.
+    if (existingCards.length > 0) {
+        console.log(`Reshuffling ${existingCards.length} cards.`);
+        for (let i = existingCards.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [existingCards[i], existingCards[j]] = [existingCards[j], existingCards[i]];
+        }
+        return existingCards;
+    }
+
+
     const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
     const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
     const singleDeck = suits.flatMap(suit => ranks.map(rank => ({ suit, rank })));
@@ -22,7 +63,7 @@ export const dealCards = (deck, players) => {
     const mutableDeck = [...deck];
     const hands = {};
     players.forEach(player => { hands[player.id] = []; });
-    const cardsToDeal = players.length > 5 ? 5 : 7;
+    const cardsToDeal = players.length > 2 ? 7 : 5; // Official rules adjustment
 
     for (let i = 0; i < cardsToDeal; i++) {
         players.forEach(player => {
@@ -40,6 +81,7 @@ export const getNextTurn = (currentTurnId, players, gameDirection) => {
     if (activePlayers.length === 0) return null;
     const currentIndex = activePlayers.findIndex(p => p.id === currentTurnId);
     if (currentIndex === -1) {
+        // Fallback for when the current player might have gone offline
         const originalIndex = players.findIndex(p => p.id === currentTurnId);
         const nextOriginalIndex = (originalIndex + gameDirection + players.length) % players.length;
         return players[nextOriginalIndex].id;
@@ -64,14 +106,14 @@ export const applyCrazyEightsCardLogic = (card, { players, gameDirection, curren
             gameMessage = "Direction reversed!";
             break;
         case 'J':
-            if (options.jackSkips) {
-                const skippedPlayerId = getNextTurn(currentTurn, players, newGameDirection);
-                nextTurn = getNextTurn(skippedPlayerId, players, newGameDirection);
-                const skippedPlayer = players.find(p => p.id === skippedPlayerId);
-                gameMessage = `${skippedPlayer?.name || 'Next player'} is skipped!`;
-                if (players.filter(p => p.status !== 'offline').length === 2) {
-                    gameMessage += ` Play again.`;
-                }
+
+            const skippedPlayerId = getNextTurn(currentTurn, players, newGameDirection);
+            nextTurn = getNextTurn(skippedPlayerId, players, newGameDirection);
+            const skippedPlayer = players.find(p => p.id === skippedPlayerId);
+            gameMessage = `${skippedPlayer?.name || 'Next player'} is skipped!`;
+            if (players.filter(p => p.status !== 'offline').length === 2) {
+                gameMessage += ` Play again.`;
+
             }
             break;
         case '2':
@@ -87,7 +129,9 @@ export const applyCrazyEightsCardLogic = (card, { players, gameDirection, curren
             }
             break;
         case '8':
-            gameMessage = "Wild card played!";
+            // The logic for 'choosing_suit' is now handled in the engine,
+            // so we just need a message here.
+            gameMessage = "Wild card played! Choose a new suit.";
             break;
     }
     return { nextTurn, gameDirection: newGameDirection, playersHands: newPlayersHands, drawPile: newDrawPile, gameMessage };

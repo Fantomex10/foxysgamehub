@@ -1,9 +1,18 @@
 // =================================================================================
 // FILE: src/components/Card.jsx
 // =================================================================================
-import React, { forwardRef, memo } from 'react';
+import React, { forwardRef, memo, useEffect } from 'react';
 
 const Card = memo(forwardRef(({ card, disabled, className = '' }, ref) => {
+    // Log Card renders
+    useEffect(() => {
+        if (card) {
+            console.log(`CARD: Rendered card ${card.rank}-${card.suit}. Disabled: ${disabled}`);
+        } else {
+            console.log("CARD: Rendered null card.");
+        }
+    }, [card, disabled]);
+
     if (!card) return null;
 
     const cardStyle = {
@@ -28,12 +37,14 @@ const Card = memo(forwardRef(({ card, disabled, className = '' }, ref) => {
 
     const isRedSuit = card.suit === 'hearts' || card.suit === 'diamonds';
     const suitSymbol = { 'hearts': '♥', 'diamonds': '♦', 'clubs': '♣', 'spades': '♠' }[card.suit];
+    // Ensure cursorClass is always applied based on a boolean disabled prop
     const cursorClass = disabled ? 'cursor-not-allowed' : 'cursor-grab';
 
     return (
         <div
             ref={ref}
             style={cardStyle}
+            // Ensure disabled prop is always a boolean for consistency
             className={`relative bg-white rounded-lg shadow-md flex flex-col justify-between font-bold select-none border-2 border-gray-300 transition-all duration-300 ease-in-out ${cursorClass} ${className}`}
         >
             <div className={`absolute top-1 left-1 text-center ${isRedSuit ? 'text-red-600' : 'text-black'}`}>

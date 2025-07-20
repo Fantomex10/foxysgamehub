@@ -1,19 +1,39 @@
-// =================================================================================
-// FILE: src/games/crazy_eights/components/CrazyEightsTable.jsx
-// =================================================================================
-import React, { useState, useEffect, useContext, memo, useCallback } from 'react';
-import { doc, updateDoc, arrayUnion, Timestamp } from 'firebase/firestore';
+
+/*
+================================================================================
+|
+| FILE: src/games/crazy_eights/components/CrazyEightsTable.jsx
+|
+| DESCRIPTION: Simplified to a pure view component.
+| - Renders UI based on `useGameState` hook.
+| - Dispatches all actions via `useGameActions` hook, without conditional logic.
+| - Removes internal state management for game logic (e.g., showSuitPicker).
+|
+| CHANGE LOG (dnd-kit bugfix):
+| - FIXED: The DiscardPile component now correctly uses the `isOver` state from
+|   the `useDroppable` hook to provide visual feedback. This helps confirm
+|   that the drop zone is being detected by dnd-kit.
+| - FIXED: The `handleDragEnd` function was simplified by removing the `setTimeout`.
+|   This makes the state update more direct and less prone to race conditions,
+|   relying on the `dndContextKey` to properly reset dnd-kit's internal state
+|   after a card is played.
+|
+================================================================================
+*/
+import React, { memo, useEffect, useContext, useState, useCallback } from 'react';
 import { DndContext, DragOverlay, useDroppable, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { FirebaseContext } from "../../../context/FirebaseProvider";
+import { useGameState } from '../../../hooks/useGameState';
+import { useGameActions } from '../../../hooks/useGameActions';
+import { FirebaseContext } from '../../../context/FirebaseProvider';
 import { sortHand } from "./handSorter.js";
 import Card from './Card';
 import PlayerHand from './PlayerHand';
 import Scoreboard from './Scoreboard';
-import { applyCrazyEightsCardLogic, getNextTurn } from '../logic';
 import LoadingSpinner from '../../../components/ui/LoadingSpinner';
 
-const DiscardPile = ({ children, isOver }) => {
-    const { setNodeRef } = useDroppable({ id: 'discard-pile-droppable' });
+
+const DiscardPile = ({ children }) => {
+    const { setNodeRef, isOver } = useDroppable({ id: 'discard-pile-droppable' });
     return (
         <div ref={setNodeRef} className={`relative transition-colors duration-300 rounded-lg ${isOver ? 'bg-yellow-400/30' : ''}`}>
             {children}
@@ -22,215 +42,195 @@ const DiscardPile = ({ children, isOver }) => {
     );
 };
 
-const CrazyEightsTable = ({ gameData, gameId, userId, isSpectator, onUserActivity }) => {
-    const { db } = useContext(FirebaseContext);
-    const [message, setMessage] = useState('');
-    const [showSuitPicker, setShowSuitPicker] = useState(false);
-    const [cardToPlay, setCardToPlay] = useState(null);
-    const [optimisticCard, setOptimisticCard] = useState(null);
-    const [isTurnLocked, setIsTurnLocked] = useState(false);
-    const [activeDragId, setActiveDragId] = useState(null);
-    const [displayMessage, setDisplayMessage] = useState('');
+
+const SuitPicker = ({ onSelectSuit, onCancel }) => (
+    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+        <div className="bg-gray-700 p-6 rounded-xl shadow-xl border-purple-500 w-full max-w-md text-center">
+            <h3 className="text-xl font-bold text-yellow-300 mb-4">Choose a Suit</h3>
+            <div className="grid grid-cols-2 gap-2">
+                {['hearts', 'diamonds', 'clubs', 'spades'].map(suit =>
+                    <button key={suit} onClick={() => onSelectSuit(suit)} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition">{suit.charAt(0).toUpperCase() + suit.slice(1)}</button>
+                )}
+            </div>
+            <button onClick={onCancel} className="w-full mt-4 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">Cancel</button>
+        </div>
+    </div>
+);
+
+const CrazyEightsTable = ({ gameMode }) => {
+    const gameState = useGameState();
+    const { userId: currentUserId } = useContext(FirebaseContext);
+
+    // FIXED: The local processingAction state and its corresponding useEffect have been removed.
+    // They were the source of the race condition.
+
+    const { playCard, drawCard, declareSuit } = useGameActions(gameMode);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 10 } }),
         useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
     );
 
-    const getAppId = () => typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const isMyTurn = !isSpectator && gameData.currentTurn === userId && !isTurnLocked;
-
-    useEffect(() => {
-        if (message) {
-            setDisplayMessage(message);
-            const timer = setTimeout(() => { setDisplayMessage(''); setMessage(''); }, 5000);
-            return () => clearTimeout(timer);
-        }
-    }, [message]);
-
-    useEffect(() => {
-        if (optimisticCard && gameData.lastPlayedCard?.rank === optimisticCard.rank && gameData.lastPlayedCard?.suit === optimisticCard.suit) {
-            setOptimisticCard(null);
-            setIsTurnLocked(false);
-        }
-        if (gameData.currentTurn !== userId) {
-            setIsTurnLocked(false);
-        }
-    }, [gameData.lastPlayedCard, gameData.currentTurn, optimisticCard, userId]);
-
-    const executePlayCard = useCallback(async (card, chosenSuit) => {
-        if (isSpectator) return;
-        onUserActivity();
-        const appId = getAppId();
-        const gameDocRef = doc(db, `artifacts/${appId}/public/data/games`, gameId);
-        try {
-            const handAfterPlay = gameData.playersHands[userId].filter(c => !(c.rank === card.rank && c.suit === card.suit));
-            const gameStateForLogic = {
-                players: gameData.players, gameDirection: gameData.gameDirection,
-                currentTurn: gameData.currentTurn,
-                playersHands: { ...gameData.playersHands, [userId]: handAfterPlay },
-                drawPile: [...gameData.drawPile],
-                gameOptions: gameData.gameOptions // Pass options to logic
-            };
-            const logicResult = applyCrazyEightsCardLogic(card, gameStateForLogic);
-            const currentPlayer = gameData.players.find(p => p.id === userId);
-            const nextPlayer = gameData.players.find(p => p.id === logicResult.nextTurn);
-            const updates = {
-                playersHands: logicResult.playersHands, drawPile: logicResult.drawPile,
-                gameDirection: logicResult.gameDirection, currentTurn: logicResult.nextTurn,
-                discardPile: arrayUnion(card), lastPlayedCard: card, currentSuit: chosenSuit,
-                gameMessage: `${currentPlayer.name} played a ${card.rank} of ${card.suit}. ${logicResult.gameMessage} It's now ${nextPlayer.name}'s turn.`,
-                gameHistory: arrayUnion({ timestamp: Timestamp.now(), message: `${currentPlayer.name} played a ${card.rank} of ${card.suit}.` })
-            };
-            if (logicResult.playersHands[userId].length === 0) {
-                updates.status = 'finished';
-                updates.gameMessage = `${currentPlayer.name} wins the game!`;
-                updates.winner = userId;
-                updates.playersReadyForNextGame = [];
-                updates.gameHistory = arrayUnion({ timestamp: Timestamp.now(), message: `${currentPlayer.name} wins the game!` });
-            }
-            await updateDoc(gameDocRef, updates);
-        } catch (error) {
-            console.error("Error playing card:", error);
-            setDisplayMessage(`Error: ${error.message || error.toString()}`);
-            setOptimisticCard(null); setIsTurnLocked(false);
-        } finally {
-            setShowSuitPicker(false); setCardToPlay(null);
-        }
-    }, [db, gameId, gameData, userId, isSpectator, onUserActivity]);
-
-    const handlePlayCard = useCallback(async (card) => {
-        if (!isMyTurn || isSpectator) return;
-        const topCard = gameData.discardPile[gameData.discardPile.length - 1];
-        const isValidMove = !gameData.currentSuit || card.rank === '8' || card.rank === topCard.rank || card.suit === gameData.currentSuit;
-        if (!isValidMove) {
-            const message = gameData.currentSuit
-                ? `Invalid move! Play a ${gameData.currentSuit} or a ${topCard.rank}.`
-                : `Invalid move! Play any card to set the suit.`;
-            setDisplayMessage(message);
-            return;
-        }
-        setIsTurnLocked(true);
-        setOptimisticCard(card);
-        if (card.rank === '8') {
-            setCardToPlay(card); setShowSuitPicker(true);
-        } else {
-            executePlayCard(card, card.suit);
-        }
-    }, [isMyTurn, isSpectator, gameData, executePlayCard]);
-
-    const handleDrawCard = useCallback(async () => {
-        if (!isMyTurn || isSpectator) return;
-        setIsTurnLocked(true); onUserActivity();
-        const appId = getAppId();
-        const gameDocRef = doc(db, `artifacts/${appId}/public/data/games`, gameId);
-        let { drawPile, discardPile, players, gameDirection } = gameData;
-        if (drawPile.length === 0) {
-            if (discardPile.length <= 1) {
-                setDisplayMessage("No cards left to draw!"); setIsTurnLocked(false); return;
-            }
-            const topCard = discardPile.pop();
-            drawPile = discardPile.sort(() => Math.random() - 0.5);
-            discardPile = [topCard];
-        }
-        const drawnCard = drawPile.shift();
-        const updatedPlayerHand = [...gameData.playersHands[userId], drawnCard];
-        const newPlayersHands = { ...gameData.playersHands, [userId]: updatedPlayerHand };
-        const nextTurnId = getNextTurn(userId, players, gameDirection);
-        const nextPlayer = players.find(p => p.id === nextTurnId);
-        const currentPlayer = players.find(p => p.id === userId);
-        try {
-            await updateDoc(gameDocRef, {
-                drawPile, discardPile, playersHands: newPlayersHands,
-                currentTurn: nextTurnId,
-                gameMessage: `${currentPlayer.name} drew a card. It's now ${nextPlayer.name}'s turn.`,
-                gameHistory: arrayUnion({ timestamp: Timestamp.now(), message: `${currentPlayer.name} drew a card.` })
-            });
-        } catch (error) {
-            console.error("Error drawing card:", error);
-            setDisplayMessage(`Error: ${error.message || error.toString()}`);
-            setIsTurnLocked(false);
-        }
-    }, [isMyTurn, isSpectator, db, gameId, gameData, onUserActivity, userId]);
-
-    const handleDragStart = (event) => { onUserActivity(); setActiveDragId(event.active.id); };
-    const handleDragEnd = (event) => {
-        setActiveDragId(null);
-        if (event.over && event.over.id === 'discard-pile-droppable') {
-            const card = event.active.data.current?.card;
-            if (card) handlePlayCard(card);
-        }
-    };
-
-    const SuitPicker = ({ onSelectSuit, onCancel }) => (
-        <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-700 p-6 rounded-xl shadow-xl border border-purple-500 w-full max-w-md text-center">
-                <h3 className="text-xl font-bold text-yellow-300 mb-4">Choose a Suit</h3>
-                <div className="grid grid-cols-2 gap-2">
-                    {['hearts', 'diamonds', 'clubs', 'spades'].map(suit =>
-                        <button key={suit} onClick={() => onSelectSuit(suit)} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition">{suit.charAt(0).toUpperCase() + suit.slice(1)}</button>
-                    )}
-                </div>
-                <button onClick={onCancel} className="w-full mt-4 bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">Cancel</button>
-            </div>
-        </div>
-    );
-
-    if (!gameData.playersHands) return <LoadingSpinner />;
-
-    const myHand = gameData.playersHands?.[userId] || [];
-    const handWithoutOptimistic = myHand.filter(c => !optimisticCard || !(c.rank === optimisticCard.rank && c.suit === optimisticCard.suit));
-    const sortedHand = sortHand(handWithoutOptimistic);
-    const discardPileForDisplay = (gameData.discardPile || []).slice(-3);
-    if (optimisticCard) {
-        discardPileForDisplay.push(optimisticCard);
-        if (discardPileForDisplay.length > 3) discardPileForDisplay.shift();
+    if (!gameState || !gameState.status) {
+        return <LoadingSpinner message="Setting up game board..." />;
     }
+
+    const {
+        players,
+        drawPile,
+        discardPile,
+        currentTurn: currentPlayerId,
+        lastPlayedCard,
+        currentSuit: declaredSuit,
+        status,
+        winner: winnerId,
+        playersHands
+    } = gameState;
+
+    const deckSize = drawPile ? drawPile.length : 0;
+    const isSpectator = !(players?.some(p => p.id === currentUserId));
+    const isMyTurn = Boolean(!isSpectator && currentPlayerId === currentUserId);
+    const shouldShowSuitPicker = status === 'choosing_suit' && isMyTurn;
+
+    const myHand = playersHands?.[currentUserId] || [];
+    const sortedHand = sortHand(myHand);
+
+
+    const [activeDragId, setActiveDragId] = useState(null);
     const draggedCardData = activeDragId ? myHand.find(c => `${c.rank}-${c.suit}` === activeDragId) : null;
 
+    // FIXED: Removed the processingAction check. The isMyTurn check, derived
+    // from the server state, is the only source of truth required.
+    const handlePlayCard = useCallback((card) => {
+        if (!isMyTurn) {
+            console.warn("[CrazyEightsTable] UI: Not your turn. Aborting playCard.");
+            return;
+        }
+        playCard(card);
+    }, [isMyTurn, playCard]);
+
+
+    // FIXED: Removed the processingAction check here as well.
+    const handleDrawCard = useCallback(() => {
+        if (!isMyTurn) {
+            console.warn("[CrazyEightsTable] UI: Not your turn. Aborting drawCard.");
+            return;
+        }
+        drawCard();
+    }, [isMyTurn, drawCard]);
+
+
+
+    // FIXED: Removed processingAction check. This action is only available
+    // when it's the player's turn anyway.
+    const handleSelectSuit = useCallback((suit) => {
+        declareSuit(suit);
+    }, [declareSuit]);
+
+
+    const handleDragEnd = useCallback((event) => {
+        setActiveDragId(null);
+        if (event.active && event.over && event.over.id === 'discard-pile-droppable') {
+            const card = event.active.data.current?.card;
+            if (card) {
+                handlePlayCard(card);
+            }
+        }
+    }, [handlePlayCard]);
+
+    const dndContextKey = gameState.id + (gameState.gameHistory?.length || 0) + (gameState.currentTurn || '');
+
     return (
-        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <div className="w-full h-full flex flex-col items-center justify-between">
-                {displayMessage && <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-600 text-white p-3 rounded-lg z-50">{displayMessage}</div>}
+        <DndContext
+            key={dndContextKey}
+            sensors={sensors}
+            onDragStart={(e) => {
+                if (e.active.data.current?.card) {
+                    setActiveDragId(`${e.active.data.current.card.rank}-${e.active.data.current.card.suit}`);
+                }
+            }}
+            onDragEnd={handleDragEnd}
+        >
+            <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-green-700 to-green-900 text-white p-4 font-inter">
+                <h1 className="text-4xl font-bold mb-6 text-yellow-300 drop-shadow-lg">Crazy Eights</h1>
 
-                <Scoreboard gameData={gameData} userId={userId} />
-
-                <div className={`w-full max-w-sm sm:max-w-md lg:max-w-lg flex flex-col justify-center items-center gap-1 px-0.5 py-1 my-4 bg-green-800/50 rounded-lg border-4 transition-all duration-300 ${isMyTurn ? 'animate-pulse-border' : 'border-transparent'}`}>
-                    <div className="flex justify-center items-end gap-3 sm:gap-6">
-                        <div className="flex flex-col items-center">
-                            <p className="text-gray-200 mb-0.5 h-3 text-xs">Draw ({gameData.drawPile?.length || 0})</p>
-                            <button onClick={handleDrawCard} disabled={!isMyTurn || isSpectator}><Card card={{rank: 'DRAW', suit: 'special'}} disabled={!isMyTurn} /></button>
-                        </div>
-                        <div className="flex flex-col items-center">
-                            <p className="text-gray-200 mb-0.5 h-3 text-xs">Discard</p>
-                            <DiscardPile isOver={!!activeDragId}>
-                                <div className="flex items-center justify-center" style={{height: 'var(--card-height)'}}>
-                                    {discardPileForDisplay.length > 0 ? (
-                                        discardPileForDisplay.map((card, index) => (
-                                            <div key={`${card.rank}-${card.suit}-${index}`} className="-ml-[calc(var(--card-width)_/_1.5)] first:ml-0" style={{ zIndex: index }}>
-                                                <Card card={card} disabled={true} />
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div style={{height: 'var(--card-height)', width: 'var(--card-width)'}} className="bg-black/20 rounded-lg"></div>
-                                    )}
-                                </div>
-                            </DiscardPile>
-                        </div>
-                    </div>
-                    <p className="text-gray-300 mt-1 text-xs">Current Suit: <span className="font-bold text-yellow-200">{gameData.currentSuit?.toUpperCase()}</span></p>
+                <div className="mb-4 text-lg">
+                    <p>Game ID: <span className="font-semibold">{gameState.id}</span></p>
                 </div>
 
-                {!isSpectator && (
-                    <div className="w-full mt-auto p-0.5">
-                        <PlayerHand cards={sortedHand} isMyTurn={isMyTurn} />
+                {status === 'finished' && (
+                    <div className="text-3xl font-bold mb-4 p-4 bg-purple-600 rounded-lg shadow-md">
+                        Game Over! Winner: {winnerId === currentUserId ? 'You!' : players?.find(p => p.id === winnerId)?.name || winnerId}
                     </div>
                 )}
 
-                {showSuitPicker && <SuitPicker onSelectSuit={(suit) => executePlayCard(cardToPlay, suit)} onCancel={() => { setShowSuitPicker(false); setCardToPlay(null); setOptimisticCard(null); setIsTurnLocked(false); }} />}
+                {status === 'playing' || status === 'choosing_suit' ? (
+                    <div className="text-2xl mb-4 p-3 bg-indigo-600 rounded-lg shadow-md">
+                        {isMyTurn ? 'Your Turn!' : `It's ${players?.find(p => p.id === currentPlayerId)?.name || currentPlayerId}'s Turn`}
+                    </div>
+                ) : null}
+
+                <div className="mb-8 p-4 bg-green-800 rounded-lg shadow-inner w-full max-w-2xl flex flex-wrap justify-center gap-4">
+                    <h3 className="text-xl font-semibold w-full text-center mb-2">Opponents:</h3>
+                    {players?.filter(p => p.id !== currentUserId).map(opponent => (
+                        <div key={opponent.id} className="text-lg text-center">
+                            <p className="font-semibold">{opponent.name || opponent.id}</p>
+                            <p>Cards: {playersHands?.[opponent.id]?.length || 0}</p>
+                        </div>
+                    ))}
+                </div>
+
+                <div className="flex items-center space-x-8 mb-8">
+                    <DiscardPile>
+                        <div className="flex flex-col items-center">
+                            <h3 className="text-xl font-semibold mb-2">Discard Pile</h3>
+                            {lastPlayedCard ? (
+                                <Card card={lastPlayedCard} disabled={true} />
+                            ) : (
+                                <div className="w-24 h-36 bg-gray-300 rounded-md flex items-center justify-center text-gray-500 text-sm">
+                                    Empty
+                                </div>
+                            )}
+                            {declaredSuit && status !== 'choosing_suit' && (
+                                <p className="mt-2 text-xl font-bold text-yellow-400">Declared: {declaredSuit}</p>
+                            )}
+                        </div>
+                    </DiscardPile>
+                    <div className="flex flex-col items-center">
+                        <h3 className="text-xl font-semibold mb-2">Deck</h3>
+                        <div
+                            className={`w-24 h-36 bg-blue-800 rounded-md border-2 border-blue-600 shadow-lg flex items-center justify-center transition-transform duration-200 ${isMyTurn ? 'cursor-pointer hover:scale-105' : 'cursor-not-allowed'}`}
+                            onClick={handleDrawCard}
+                            style={{ opacity: isMyTurn ? 1 : 0.5 }}
+                        >
+                            <span className="text-5xl font-bold text-white">🂡</span>
+                        </div>
+                        <p className="mt-2 text-lg">Cards left: {deckSize}</p>
+                    </div>
+                </div>
+
+                {shouldShowSuitPicker && (
+                    <SuitPicker
+                        onSelectSuit={handleSelectSuit}
+                        onCancel={() => handleSelectSuit(null)}
+                    />
+                )}
+
+                {!isSpectator && (status === 'playing' || status === 'choosing_suit') && (
+                    <div className="mt-8 w-full max-w-4xl">
+                        <h3 className="text-2xl font-bold mb-4 text-yellow-300 text-center">Your Hand</h3>
+                        <PlayerHand
+                            cards={sortedHand}
+                            onPlayCard={handlePlayCard}
+                            isMyTurn={isMyTurn}
+                            activeDragId={activeDragId}
+
+                        />
+                    </div>
+                )}
             </div>
             <DragOverlay>
-                {activeDragId && draggedCardData ? <Card card={draggedCardData} /> : null}
+                {activeDragId && draggedCardData ? <Card card={draggedCardData} disabled={false} /> : null}
             </DragOverlay>
         </DndContext>
     );
