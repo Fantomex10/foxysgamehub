@@ -25,6 +25,7 @@ export const useGameSession = ({ currentGameId, setCurrentGameId, setIsLoading, 
 
     // Use a ref to hold the unsubscribe function. This is key to preventing race conditions.
     const unsubscribeRef = useRef(null);
+
     const clearClientSession = useCallback(() => {
         console.log("USE_GAME_SESSION: Clearing client session.");
         if (unsubscribeRef.current) {
@@ -48,7 +49,6 @@ export const useGameSession = ({ currentGameId, setCurrentGameId, setIsLoading, 
         }
         console.log(`USE_GAME_SESSION: Attaching listener to game ID: ${gameId}`);
 
-
         // If we're already listening to a game, stop that first.
         if (unsubscribeRef.current) {
             console.log("USE_GAME_SESSION: Existing listener found, unsubscribing before new one.");
@@ -56,7 +56,6 @@ export const useGameSession = ({ currentGameId, setCurrentGameId, setIsLoading, 
         }
 
         const gameDocRef = doc(db, `artifacts/${getAppId()}/public/data/crazy_eights_games`, gameId);
-
 
         unsubscribeRef.current = onSnapshot(gameDocRef, (snapshot) => {
             if (snapshot.exists()) {
@@ -75,10 +74,8 @@ export const useGameSession = ({ currentGameId, setCurrentGameId, setIsLoading, 
                 setError(null);
                 setIsLoading(false); // Crucial: Stop loading once data is received
             } else {
-
                 console.log("USE_GAME_SESSION: Listener detected game no longer exists. Clearing session.");
                 clearClientSession();
-
             }
         }, (err) => {
             console.error("USE_GAME_SESSION: FATAL ERROR (onSnapshot):", err);
@@ -116,7 +113,6 @@ export const useGameSession = ({ currentGameId, setCurrentGameId, setIsLoading, 
             return;
         }
         setIsLoading(true);
-
         setError(null);
         try {
             console.log("USE_GAME_SESSION: Sending 'createGame' request to server...");
@@ -143,7 +139,6 @@ export const useGameSession = ({ currentGameId, setCurrentGameId, setIsLoading, 
             return;
         }
         setIsLoading(true);
-
         setError(null);
         try {
             console.log(`USE_GAME_SESSION: Sending 'joinGame' request for game ID: ${gameId}`);
@@ -162,30 +157,22 @@ export const useGameSession = ({ currentGameId, setCurrentGameId, setIsLoading, 
 
     const goToLobby = useCallback(() => {
         console.log("USE_GAME_SESSION: Calling goToLobby.");
-
         clearClientSession();
     }, [clearClientSession]);
 
-    // +++ MODIFIED: This is the "hard" quit that removes the player from the game.
     const quitGame = useCallback(async () => {
         const gameIdToLeave = currentGameId;
-
         console.log(`USE_GAME_SESSION: Quitting game ID: ${gameIdToLeave}`);
         clearClientSession(); // Clear session immediately for responsive UI
-
         if (gameIdToLeave && db && userId) {
             try {
                 await gameService.quitGame(db, userId, gameIdToLeave);
                 console.log("USE_GAME_SESSION: Server quitGame request sent.");
             } catch (err) {
-
                 console.error("USE_GAME_SESSION: Error on server while quitting game:", err);
-
             }
         }
     }, [currentGameId, db, userId, clearClientSession]);
 
-
     return { createGame, joinGame, goToLobby, quitGame };
-
 };

@@ -21,4 +21,3 @@ const SpectatorPopover = ({ spectators }) => {
 };
 
 export default SpectatorPopover;
-

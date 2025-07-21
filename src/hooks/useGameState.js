@@ -17,4 +17,3 @@ export const useGameState = () => {
 
     return gameState;
 };
-

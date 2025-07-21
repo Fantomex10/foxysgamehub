@@ -42,7 +42,6 @@ export const createShuffledDeck = (playerCount = 4, existingCards = []) => {
         return existingCards;
     }
 
-
     const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
     const ranks = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
     const singleDeck = suits.flatMap(suit => ranks.map(rank => ({ suit, rank })));
@@ -90,14 +89,12 @@ export const getNextTurn = (currentTurnId, players, gameDirection) => {
     return activePlayers[nextIndex].id;
 };
 
-export const applyCrazyEightsCardLogic = (card, { players, gameDirection, currentTurn, playersHands, drawPile, gameOptions }) => {
+export const applyCrazyEightsCardLogic = (card, { players, gameDirection, currentTurn, playersHands, drawPile }) => {
     let nextTurn = getNextTurn(currentTurn, players, gameDirection);
     let newGameDirection = gameDirection;
     let newPlayersHands = { ...playersHands };
     let newDrawPile = [...drawPile];
     let gameMessage = "";
-
-    const options = gameOptions || { stackTwos: true, jackSkips: true };
 
     switch (card.rank) {
         case 'A':
@@ -106,14 +103,12 @@ export const applyCrazyEightsCardLogic = (card, { players, gameDirection, curren
             gameMessage = "Direction reversed!";
             break;
         case 'J':
-
             const skippedPlayerId = getNextTurn(currentTurn, players, newGameDirection);
             nextTurn = getNextTurn(skippedPlayerId, players, newGameDirection);
             const skippedPlayer = players.find(p => p.id === skippedPlayerId);
             gameMessage = `${skippedPlayer?.name || 'Next player'} is skipped!`;
             if (players.filter(p => p.status !== 'offline').length === 2) {
                 gameMessage += ` Play again.`;
-
             }
             break;
         case '2':

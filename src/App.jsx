@@ -1,4 +1,3 @@
-
 /*
 ================================================================================
 |
@@ -17,14 +16,13 @@ import { useGameSession } from './hooks/useGameSession';
 import { useGameState } from './hooks/useGameState';
 import SplashScreen from './components/SplashScreen';
 import LoadingSpinner from './components/ui/LoadingSpinner';
+import GlobalStyles from './components/ui/GlobalStyles';
 import GameLobby from './components/GameLobby';
+import GameRoom from './games/crazy_eights/GameRoom';
 import Header from './components/ui/Header';
 import ProfilePanel from './components/ui/ProfilePanel';
 import MenuPanel from './components/ui/MenuPanel';
 import OptionsModal from './components/ui/OptionsModal';
-import ConfirmDialog from './components/ui/ConfirmDialog';
-
-import { gameRegistry } from './games';
 
 // ErrorBoundary remains the same
 class ErrorBoundary extends React.Component {
@@ -43,7 +41,6 @@ const AppContent = () => {
     const { isAuthReady, userId, error: authError } = useContext(FirebaseContext);
     const { uiScale } = useUi();
 
-
     const [currentGameId, setCurrentGameId] = useState(() => localStorage.getItem('foxytcg-lastGameId'));
     const [isLoading, setIsLoading] = useState(!!currentGameId);
     const [error, setError] = useState(null);
@@ -58,7 +55,6 @@ const AppContent = () => {
     });
 
     const gameData = useGameState();
-
 
     const [showSplash, setShowSplash] = useState(true);
     const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -79,7 +75,6 @@ const AppContent = () => {
         document.body.classList.toggle('large-ui', uiScale === 'large');
     }, [uiScale]);
 
-
     // Handlers for menu actions
     const handleGoToLobby = () => {
         setIsMenuOpen(false);
@@ -95,7 +90,6 @@ const AppContent = () => {
             quitGame();
             console.log("APP: Quitting game.");
         }
-
     };
 
     const handleOpenOptions = () => {
@@ -116,13 +110,11 @@ const AppContent = () => {
             return <div className="w-full h-full flex items-center justify-center"><LoadingSpinner message="Connecting..." /></div>;
         }
 
-
         // If we are in an active game, render the GameRoom
         if (isInGame) {
             console.log("APP: Rendering GameRoom.");
             const isSpectator = gameData.spectators?.some(s => s.id === userId) && !gameData.players.some(p => p.id === userId);
             return <GameRoom isSpectator={isSpectator} gameMode={gameMode} />;
-
         }
 
         // Otherwise, render the GameLobby
@@ -152,12 +144,10 @@ const AppContent = () => {
 
     return (
         <div className="min-h-screen w-full bg-gray-900 text-white font-sans flex flex-col">
-
             <GlobalStyles />
             <Header isInGame={isInGame} gameData={gameData} onProfileClick={() => setIsProfileOpen(true)} onMenuClick={() => setIsMenuOpen(true)} />
             <ProfilePanel isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
             <MenuPanel isOpen={isMenuOpen} isInGame={isInGame} onClose={() => setIsMenuOpen(false)} onGoToLobby={handleGoToLobby} onOpenOptions={handleOpenOptions} onQuitGame={handleQuitGame} />
-
             <main className={`pt-16 transition-all duration-300 ease-in-out flex-grow overflow-y-auto ${isProfileOpen ? 'md:ml-64' : ''}`}>
                  <div className="p-0 h-full w-full flex-grow flex flex-col">
                     {displayError && <div className="text-red-500 bg-red-900 p-3 rounded-md m-4 text-center">{displayError}</div>}
@@ -171,13 +161,11 @@ const AppContent = () => {
 
 const App = () => (
     <FirebaseProvider>
-
         <GameProvider>
             <UiProvider>
                 <AppContent />
             </UiProvider>
         </GameProvider>
-
     </FirebaseProvider>
 );
 

@@ -1,4 +1,3 @@
-
 /*
 ================================================================================
 |
@@ -11,18 +10,14 @@
 import React, { useContext, useState } from 'react';
 import { useGameState } from '../../hooks/useGameState';
 import { useGameActions } from '../../hooks/useGameActions'; // Import the new actions hook
-
 import { FirebaseContext } from '../../context/FirebaseProvider';
-import { useModal } from '../../context/ModalProvider'; // +++ ADDED
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import CrazyEightsTable from './components/CrazyEightsTable';
 import WaitingRoom from './components/WaitingRoom';
 
-
 const GameRoom = ({ isSpectator, gameMode }) => {
     const { userId } = useContext(FirebaseContext);
     const gameData = useGameState(); // Subscribes to GameEngine state
-
 
     // Get the actions from our centralized hook
     const { readyForRematch, startRematch } = useGameActions(gameMode, gameData?.id);
@@ -78,16 +73,15 @@ const GameRoom = ({ isSpectator, gameMode }) => {
                 console.log(`GAMEROOM: Rendering CrazyEightsTable for status: ${gameData.status}.`);
                 return <CrazyEightsTable gameId={gameData.id} userId={userId} isSpectator={isSpectator} gameMode={gameMode} />;
             case 'finished':
-
                 console.log("GAMEROOM: Rendering Game Over screen.");
                 const winner = gameData.players.find(p => p.id === gameData.winner) || { name: 'Someone' };
-
                 const amIReadyForRematch = gameData.playersReadyForNextGame?.includes(userId);
                 const allPlayersReady = gameData.players.length > 0 && gameData.playersReadyForNextGame?.length === gameData.players.length;
 
                 return (
                     <div className="w-full max-w-md mx-auto p-6 bg-gray-800 rounded-2xl shadow-2xl border-2 border-yellow-500 flex flex-col items-center text-center">
-                        <h2 className="text-3xl font-bold text-yellow-300 mb-4">Play Again?</h2>
+                        <h2 className="text-3xl font-bold text-yellow-300 mb-2">Game Over!</h2>
+                        <p className="text-lg text-white mb-6">{winner.name} wins the game!</p>
 
                         {gameMode === 'online' && (
                             <>
@@ -119,10 +113,6 @@ const GameRoom = ({ isSpectator, gameMode }) => {
                                 )}
                             </>
                         )}
-
-                        <button onClick={returnToLobby} className="w-full mt-3 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-6 rounded-lg">
-                            Return to Lobby
-                        </button>
                     </div>
                 );
             default:

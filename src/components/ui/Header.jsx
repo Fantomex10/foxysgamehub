@@ -1,5 +1,6 @@
 // =================================================================================
 // FILE: src/components/ui/Header.jsx
+// DESCRIPTION: Cleaned-up header with Profile icon on left, Menu icon on right.
 // =================================================================================
 import React, { useState, useRef, useEffect } from 'react';
 import myProfilePic from '../../assets/foxyfcg_small.png';
@@ -23,17 +24,6 @@ const Header = ({ isInGame, gameData, onProfileClick, onMenuClick }) => {
             navigator.clipboard.writeText(gameData.joinCode);
             setIsInfoDropdownOpen(false); // Close dropdown after copying
         }
-    };
-
-    const renderGameOptions = () => {
-        if (!gameData?.gameOptions) return null;
-        const { stackTwos, jackSkips } = gameData.gameOptions;
-        return (
-            <div className="text-xs text-gray-400 mt-2 border-t border-purple-600 pt-2">
-                <p>Stack Twos: {stackTwos ? 'On' : 'Off'}</p>
-                <p>Jack Skips: {jackSkips ? 'On' : 'Off'}</p>
-            </div>
-        );
     };
 
     return (
@@ -62,7 +52,6 @@ const Header = ({ isInGame, gameData, onProfileClick, onMenuClick }) => {
                                         {gameData.joinCode}
                                     </button>
                                 </div>
-                                {renderGameOptions()}
                             </div>
                         )}
                     </>
@@ -73,7 +62,7 @@ const Header = ({ isInGame, gameData, onProfileClick, onMenuClick }) => {
             <div className="flex items-center gap-3">
                 {isInGame && (
                     <button onClick={onMenuClick} className="text-gray-300 hover:text-yellow-300 transition-colors p-2">
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
                         </svg>
                     </button>

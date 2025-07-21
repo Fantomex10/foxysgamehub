@@ -1,11 +1,12 @@
 // =================================================================================
-// FILE: src/hooks/useGameList.js
+// FILE: src/hooks/useGameList.js (Refactored & Simplified)
 // =================================================================================
 import { useState, useEffect, useCallback } from 'react';
 import { collection, query, where, onSnapshot, getDocs, doc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 
 const getAppId = () => typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
+// This hook is now much simpler. It just fetches and refreshes the list of games.
 export const useGameList = (db, userId) => {
     const [activeGames, setActiveGames] = useState([]);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -13,7 +14,8 @@ export const useGameList = (db, userId) => {
     const gamesQuery = useCallback(() => {
         if (!db) return null;
         const appId = getAppId();
-        const gamesCollectionRef = collection(db, `artifacts/${appId}/public/data/games`);
+        const gamesCollectionRef = collection(db, `artifacts/${appId}/public/data/crazy_eights_games`);
+        // We only care about games that are waiting for players.
         return query(gamesCollectionRef, where("status", "==", "waiting"));
     }, [db]);
 
@@ -33,6 +35,7 @@ export const useGameList = (db, userId) => {
         }
     }, [gamesQuery]);
 
+    // This effect runs the listener for real-time updates
     useEffect(() => {
         const q = gamesQuery();
         if (!q || !userId) return;
@@ -50,11 +53,12 @@ export const useGameList = (db, userId) => {
         return () => unsubscribe();
     }, [userId, gamesQuery]);
 
+    // This effect handles periodic cleanup of stale games
     useEffect(() => {
         if (!db) return;
         const cleanupGames = async () => {
             const appId = getAppId();
-            const gamesCollectionRef = collection(db, `artifacts/${appId}/public/data/games`);
+            const gamesCollectionRef = collection(db, `artifacts/${appId}/public/data/crazy_eights_games`);
             const now = Date.now();
             const STALE_GAME_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 
@@ -64,8 +68,11 @@ export const useGameList = (db, userId) => {
                 querySnapshot.forEach(async (docSnapshot) => {
                     const game = docSnapshot.data();
 
+                    // CRITICAL FIX: Only check games that have a valid server timestamp.
+                    // New games might be read from the cache before the timestamp is applied,
+                    // so we must skip them in this check to avoid accidental deletion.
                     if (!game.createdAt || typeof game.createdAt.toDate !== 'function') {
-                        return;
+                        return; // Skip this game, it's likely brand new.
                     }
 
                     const createdAt = game.createdAt.toDate().getTime();
@@ -80,8 +87,8 @@ export const useGameList = (db, userId) => {
             }
         };
 
-        const intervalId = setInterval(cleanupGames, 5 * 60 * 1000);
-        cleanupGames();
+        const intervalId = setInterval(cleanupGames, 5 * 60 * 1000); // Run every 5 minutes
+        cleanupGames(); // Run once on startup
 
         return () => clearInterval(intervalId);
     }, [db]);

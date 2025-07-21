@@ -1,4 +1,3 @@
-
 /*
 ================================================================================
 |
@@ -64,7 +63,7 @@ const CrazyEightsTable = ({ gameMode }) => {
     // FIXED: The local processingAction state and its corresponding useEffect have been removed.
     // They were the source of the race condition.
 
-    const { playCard, drawCard, declareSuit } = useGameActions(gameMode);
+    const { playCard, drawCard, declareSuit } = useGameActions();
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 10 } }),
@@ -95,7 +94,6 @@ const CrazyEightsTable = ({ gameMode }) => {
     const myHand = playersHands?.[currentUserId] || [];
     const sortedHand = sortHand(myHand);
 
-
     const [activeDragId, setActiveDragId] = useState(null);
     const draggedCardData = activeDragId ? myHand.find(c => `${c.rank}-${c.suit}` === activeDragId) : null;
 
@@ -118,7 +116,6 @@ const CrazyEightsTable = ({ gameMode }) => {
         }
         drawCard();
     }, [isMyTurn, drawCard]);
-
 
 
     // FIXED: Removed processingAction check. This action is only available

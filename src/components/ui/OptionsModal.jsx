@@ -1,32 +1,28 @@
 // =================================================================================
 // FILE: src/components/ui/OptionsModal.jsx
+// DESCRIPTION: Enhanced options modal with Kick/Spectate and dynamic game settings.
 // =================================================================================
 import React, { useContext, useState, useEffect } from 'react';
 import { useUi } from '../../context/UiProvider';
 import { FirebaseContext } from '../../context/FirebaseProvider';
 import * as gameService from '../../services/gameService';
-import { gameRegistry } from '../../games'; // +++ ADDED
 
 const OptionsModal = ({ isOpen, onClose, gameData }) => {
     const { uiScale, setUiScale } = useUi();
     const { db, userId } = useContext(FirebaseContext);
     const [maxPlayers, setMaxPlayers] = useState(gameData?.maxPlayers || 4);
     const [settingsMessage, setSettingsMessage] = useState('');
-    // +++ ADDED: State for game options
-    const [gameOptions, setGameOptions] = useState(gameData?.gameOptions || {});
 
     useEffect(() => {
-        if (isOpen && gameData) {
+        if (isOpen && gameData?.maxPlayers) {
             setMaxPlayers(gameData.maxPlayers);
-            setGameOptions(gameData.gameOptions || {});
-            setSettingsMessage('');
+            setSettingsMessage(''); // Clear message when modal opens
         }
     }, [isOpen, gameData]);
 
     if (!isOpen || !gameData) return null;
 
     const amIHost = gameData.host === userId;
-    const canChangeSettings = amIHost && (gameData.status === 'waiting' || gameData.status === 'finished');
 
     const handleKickPlayer = (playerIdToKick) => {
         if (!amIHost) return;
@@ -46,21 +42,18 @@ const OptionsModal = ({ isOpen, onClose, gameData }) => {
         }
     };
 
-    const handleSaveChanges = async () => {
-        if (!canChangeSettings) return;
+    const handleMaxPlayersChange = async () => {
+        if (!amIHost) return;
         setSettingsMessage('');
         try {
             await gameService.changeMaxPlayers(db, gameData.id, userId, Number(maxPlayers));
-            await gameService.updateGameOptions(db, gameData.id, userId, gameOptions);
-            setSettingsMessage('Settings updated!');
+            setSettingsMessage('Max players updated!');
         } catch (error) {
             setSettingsMessage(`Error: ${error.message}`);
         } finally {
             setTimeout(() => setSettingsMessage(''), 3000);
         }
     };
-
-    const OptionsComponent = gameRegistry[gameData.gameType]?.OptionsComponent;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
@@ -85,17 +78,13 @@ const OptionsModal = ({ isOpen, onClose, gameData }) => {
                             {/* Game Settings */}
                             <div>
                                 <h3 className="text-lg font-semibold mb-2 text-purple-200">Game Settings</h3>
-                                <div className="flex items-center gap-3 mb-4">
+                                <div className="flex items-center gap-3">
                                     <label htmlFor="maxPlayers" className="text-gray-300">Max Players:</label>
-                                    <select id="maxPlayers" value={maxPlayers} onChange={(e) => setMaxPlayers(e.target.value)} disabled={!canChangeSettings} className="p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm disabled:opacity-50">
+                                    <select id="maxPlayers" value={maxPlayers} onChange={(e) => setMaxPlayers(e.target.value)} className="p-2 rounded-lg bg-gray-700 text-white border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm">
                                         {[2,3,4,5,6,7,8].map(n => <option key={n} value={n}>{n}</option>)}
                                     </select>
+                                    <button onClick={handleMaxPlayersChange} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg text-sm">Apply</button>
                                 </div>
-                                {OptionsComponent && <OptionsComponent options={gameOptions} setOptions={setGameOptions} disabled={!canChangeSettings} />}
-                                {canChangeSettings && (
-                                    <button onClick={handleSaveChanges} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg text-sm mt-4">Apply Changes</button>
-                                )}
-                                {!canChangeSettings && <p className="text-xs text-gray-400 mt-2">Game settings can only be changed by the host in the lobby or after a game.</p>}
                                 {settingsMessage && <p className="text-sm text-yellow-300 mt-2">{settingsMessage}</p>}
                             </div>
 

@@ -1,4 +1,3 @@
-
 /*
 ================================================================================
 |
@@ -10,7 +9,6 @@
 |
 ================================================================================
 */
-
 import {
     collection,
     addDoc,
@@ -23,16 +21,14 @@ import {
     arrayRemove,
     runTransaction,
     deleteField,
-
     Timestamp
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { createShuffledDeck, dealCards, applyCrazyEightsCardLogic, getNextTurn } from '../games/crazy_eights/logic';
 
-
 const getAppId = () => typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const getGamesCollection = (db) => collection(db, `artifacts/${getAppId()}/public/data/games`);
-const getGameDocRef = (db, gameId) => doc(db, `artifacts/${getAppId()}/public/data/games`, gameId);
+const getGamesCollection = (db) => collection(db, `artifacts/${getAppId()}/public/data/crazy_eights_games`);
+const getGameDocRef = (db, gameId) => doc(db, `artifacts/${getAppId()}/public/data/crazy_eights_games`, gameId);
 
 const generateJoinCode = () => Math.floor(1000 + Math.random() * 9000).toString();
 
@@ -57,7 +53,6 @@ export const createGame = async (db, userId, options) => {
         gameType: options.gameType || 'crazy_eights',
         maxPlayers: options.maxPlayers || 4,
         joinCode: generateJoinCode(),
-        gameOptions: options.gameOptions || {},
     };
 
     try {
@@ -71,32 +66,6 @@ export const createGame = async (db, userId, options) => {
         throw error;
     }
 };
-
-export const deleteGame = async (db, gameId, userId) => {
-    const gameRef = getGameDocRef(db, gameId);
-    const gameSnap = await getDoc(gameRef);
-    if (!gameSnap.exists()) throw new Error("Game not found.");
-
-    const gameData = gameSnap.data();
-    if (gameData.host !== userId) throw new Error("Only the host can delete the game.");
-    if (gameData.status !== 'waiting') throw new Error("Cannot delete a game that has already started.");
-
-    await deleteDoc(gameRef);
-};
-
-// +++ ADDED: New function for the host to update game options.
-export const updateGameOptions = async (db, gameId, hostId, newOptions) => {
-    const gameRef = getGameDocRef(db, gameId);
-    return runTransaction(db, async (transaction) => {
-        const gameSnap = await transaction.get(gameRef);
-        if (!gameSnap.exists()) throw new Error("Game not found.");
-        const gameData = gameSnap.data();
-        if (gameData.host !== hostId) throw new Error("Only the host can change game settings.");
-
-        transaction.update(gameRef, { gameOptions: newOptions });
-    });
-};
-
 
 export const joinGame = async (db, userId, playerName, gameId) => {
     const gameRef = getGameDocRef(db, gameId);
@@ -158,7 +127,6 @@ export const quitGame = async (db, userId, gameId) => {
     });
 };
 
-
 export const setPlayerReady = async (db, gameId, userId, isReady) => {
     const gameRef = getGameDocRef(db, gameId);
     const updateAction = isReady ? arrayUnion(userId) : arrayRemove(userId);
@@ -194,17 +162,14 @@ export const startGame = async (db, gameId, hostId) => {
             throw new Error("You need at least 2 players to start.");
         }
 
-
         // Prepare game state for start
         const shuffledDeck = createShuffledDeck(gameData.players.length);
         const { hands, remainingDeck: deckAfterDealing } = dealCards(shuffledDeck, gameData.players);
         const firstCard = deckAfterDealing.shift();
-
         const firstPlayer = gameData.players[0];
 
         const updates = {
             status: 'playing',
-
             drawPile: deckAfterDealing,
             discardPile: [firstCard],
             playersHands: hands,
@@ -220,7 +185,6 @@ export const startGame = async (db, gameId, hostId) => {
         transaction.update(gameRef, updates);
         console.log(`GAME_SERVICE: Game ${gameId} successfully updated to 'playing' status with initial state.`);
         console.log("GAME_SERVICE: StartGame Transaction Updates:", updates); // Log the updates object
-
     });
 };
 
@@ -341,7 +305,6 @@ export const startRematch = async (db, oldGameId, hostId) => {
             return oldGameData.nextGameId; // Rematch already created, return its ID
         }
 
-
         if (oldGameData.host !== hostId) {
             console.error(`GAME_SERVICE: User ${hostId} is not host of old game ${oldGameId}, cannot start rematch.`);
             throw new Error("Only the host can start a rematch.");
@@ -362,17 +325,15 @@ export const startRematch = async (db, oldGameId, hostId) => {
             gameType: oldGameData.gameType,
             maxPlayers: oldGameData.maxPlayers,
             joinCode: generateJoinCode(),
-            gameOptions: oldGameData.gameOptions || {},
         };
-        const newGameCollection = getGamesCollection(db);
 
+        const newGameCollection = getGamesCollection(db);
         const newGameRef = doc(newGameCollection); // Firestore generates a new ID
 
         transaction.set(newGameRef, newGameData); // Create the new game document
         transaction.update(oldGameRef, { nextGameId: newGameRef.id }); // Link old game to new game
 
         console.log(`GAME_SERVICE: Rematch for ${oldGameId} successfully created as new game ID: ${newGameRef.id}.`);
-
         return newGameRef.id;
     });
 };

@@ -37,4 +37,3 @@ export const usePlayerPresence = (playerIds = []) => {
 
     return presence;
 };
-
