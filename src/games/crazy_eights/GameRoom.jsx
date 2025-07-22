@@ -19,8 +19,8 @@ const GameRoom = ({ isSpectator, gameMode }) => {
     const { userId } = useContext(FirebaseContext);
     const gameData = useGameState(); // Subscribes to GameEngine state
 
-    // Get the actions from our centralized hook
-    const { readyForRematch, startRematch } = useGameActions(gameMode, gameData?.id);
+    // Get the actions from our centralized hook, providing the gameMode
+    const { readyForRematch, startRematch } = useGameActions(gameMode);
 
     console.log(`GAMEROOM: Rendered. gameData status: ${gameData?.status}, gameData ID: ${gameData?.id}, isSpectator: ${isSpectator}`);
 

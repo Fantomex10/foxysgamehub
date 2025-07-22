@@ -3,9 +3,8 @@
 |
 | FILE: src/services/gameService.js
 |
-| DESCRIPTION: The Courier.
-| - This version contains the complete, working implementation for all game
-|   actions, fixing the bug where createGame was not defined.
+| DESCRIPTION: This service handles all interactions between the game and the
+| Firebase backend, such as creating, joining, and updating games.
 |
 ================================================================================
 */
@@ -24,7 +23,8 @@ import {
     Timestamp
 } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
-import { createShuffledDeck, dealCards, applyCrazyEightsCardLogic, getNextTurn } from '../games/crazy_eights/logic';
+// CORRECTED: 'applyCrazyEightsCardLogic' has been renamed to 'applyCardLogic' in the logic file.
+import { createShuffledDeck, dealCards, applyCardLogic, getNextTurn } from '../games/crazy_eights/logic';
 
 const getAppId = () => typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 const getGamesCollection = (db) => collection(db, `artifacts/${getAppId()}/public/data/crazy_eights_games`);
@@ -174,9 +174,8 @@ export const startGame = async (db, gameId, hostId) => {
             discardPile: [firstCard],
             playersHands: hands,
             currentTurn: firstPlayer.id,
-            // If first card is an '8', currentSuit is null, requiring player to choose
             currentSuit: firstCard.rank === '8' ? null : firstCard.suit,
-            gameDirection: 1, // Default to forward
+            gameDirection: 1,
             gameMessage: `Game started! It's ${firstPlayer.name}'s turn.`,
             gameHistory: arrayUnion({ timestamp: Timestamp.now(), message: "Game has started." }),
             lastPlayedCard: firstCard,
@@ -184,7 +183,6 @@ export const startGame = async (db, gameId, hostId) => {
 
         transaction.update(gameRef, updates);
         console.log(`GAME_SERVICE: Game ${gameId} successfully updated to 'playing' status with initial state.`);
-        console.log("GAME_SERVICE: StartGame Transaction Updates:", updates); // Log the updates object
     });
 };
 
@@ -192,7 +190,6 @@ export const playCard = async (db, gameId, userId, card, chosenSuit, gameData) =
     const gameDocRef = getGameDocRef(db, gameId);
     console.log(`GAME_SERVICE: Player ${userId} attempting to play card ${card.rank} of ${card.suit} in game ${gameId}.`);
 
-    // Optimistically filter the hand for local UI updates, but server will be source of truth
     const handAfterPlay = gameData.playersHands[userId].filter(c => !(c.rank === card.rank && c.suit === card.suit));
     const updates = {};
 
@@ -201,17 +198,17 @@ export const playCard = async (db, gameId, userId, card, chosenSuit, gameData) =
         updates.status = 'finished';
         updates.gameMessage = `${winner.name} wins the game!`;
         updates.winner = userId;
-        updates.playersReadyForNextGame = []; // Reset for rematch
+        updates.playersReadyForNextGame = [];
         console.log(`GAME_SERVICE: Player ${userId} wins game ${gameId}.`);
     } else {
         const gameStateForLogic = {
             players: gameData.players,
             gameDirection: gameData.gameDirection,
             currentTurn: gameData.currentTurn,
-            playersHands: { ...gameData.playersHands, [userId]: handAfterPlay }, // Pass updated hand for logic
+            playersHands: { ...gameData.playersHands, [userId]: handAfterPlay },
             drawPile: [...gameData.drawPile]
         };
-        const logicResult = applyCrazyEightsCardLogic(card, gameStateForLogic);
+        const logicResult = applyCardLogic(card, gameStateForLogic);
         const currentPlayer = gameData.players.find(p => p.id === userId);
         const nextPlayer = gameData.players.find(p => p.id === logicResult.nextTurn);
 
@@ -219,16 +216,14 @@ export const playCard = async (db, gameId, userId, card, chosenSuit, gameData) =
         updates.drawPile = logicResult.drawPile;
         updates.gameDirection = logicResult.gameDirection;
         updates.currentTurn = logicResult.nextTurn;
-        updates.currentSuit = chosenSuit; // This will be null unless an '8' was played and suit chosen
+        updates.currentSuit = chosenSuit;
         updates.gameMessage = `${currentPlayer.name} played a ${card.rank} of ${card.suit}. ${logicResult.gameMessage || ''} It's now ${nextPlayer.name}'s turn.`;
         console.log(`GAME_SERVICE: Card played, next turn for ${nextPlayer.name}.`);
     }
 
-    updates.discardPile = arrayUnion(card); // Add card to discard pile
+    updates.discardPile = arrayUnion(card);
     updates.lastPlayedCard = card;
     updates.gameHistory = arrayUnion({ timestamp: Timestamp.now(), message: `${gameData.players.find(p=>p.id===userId).name} played a ${card.rank} of ${card.suit}.` });
-
-    console.log("GAME_SERVICE: PlayCard Updates to Firestore:", updates); // Log the updates object
 
     try {
         await updateDoc(gameDocRef, updates);
@@ -244,14 +239,13 @@ export const drawCard = async (db, gameId, userId, gameData) => {
     console.log(`GAME_SERVICE: Player ${userId} attempting to draw card in game ${gameId}.`);
     let { drawPile, discardPile, players, gameDirection } = gameData;
 
-    // Reshuffle discard pile into draw pile if draw pile is empty
     if (drawPile.length === 0) {
         if (discardPile.length <= 1) {
             console.warn(`GAME_SERVICE: Cannot draw, drawPile and discardPile almost empty in game ${gameId}.`);
-            throw new Error("No cards left to draw!"); // Or handle game end/stalemate
+            throw new Error("No cards left to draw!");
         }
-        const topCard = discardPile.pop(); // Keep the top card
-        drawPile = discardPile.sort(() => Math.random() - 0.5); // Simple shuffle
+        const topCard = discardPile.pop();
+        drawPile = discardPile.sort(() => Math.random() - 0.5);
         discardPile = [topCard];
         console.log(`GAME_SERVICE: Reshuffled discard pile into draw pile for game ${gameId}.`);
     }
@@ -271,7 +265,6 @@ export const drawCard = async (db, gameId, userId, gameData) => {
         gameMessage: `${currentPlayer.name} drew a card. It's now ${nextPlayer.name}'s turn.`,
         gameHistory: arrayUnion({ timestamp: Timestamp.now(), message: `${currentPlayer.name} drew a card.` })
     };
-    console.log("GAME_SERVICE: DrawCard Updates to Firestore:", updates); // Log the updates object
 
     try {
         await updateDoc(gameDocRef, updates);
@@ -302,7 +295,7 @@ export const startRematch = async (db, oldGameId, hostId) => {
 
         if (oldGameData.nextGameId) {
             console.log(`GAME_SERVICE: Rematch already initiated for ${oldGameId}, next game ID: ${oldGameData.nextGameId}.`);
-            return oldGameData.nextGameId; // Rematch already created, return its ID
+            return oldGameData.nextGameId;
         }
 
         if (oldGameData.host !== hostId) {
@@ -316,10 +309,10 @@ export const startRematch = async (db, oldGameId, hostId) => {
 
         const newGameData = {
             host: oldGameData.host,
-            status: 'waiting', // New game starts in waiting
-            players: oldGameData.players.map(p => ({...p, isHost: p.id === hostId})), // Reset host status for new game
+            status: 'waiting',
+            players: oldGameData.players.map(p => ({...p, isHost: p.id === hostId})),
             spectators: oldGameData.spectators || [],
-            playersReady: [], // Reset ready status for new game
+            playersReady: [],
             createdAt: serverTimestamp(),
             gameName: oldGameData.gameName,
             gameType: oldGameData.gameType,
@@ -328,10 +321,10 @@ export const startRematch = async (db, oldGameId, hostId) => {
         };
 
         const newGameCollection = getGamesCollection(db);
-        const newGameRef = doc(newGameCollection); // Firestore generates a new ID
+        const newGameRef = doc(newGameCollection);
 
-        transaction.set(newGameRef, newGameData); // Create the new game document
-        transaction.update(oldGameRef, { nextGameId: newGameRef.id }); // Link old game to new game
+        transaction.set(newGameRef, newGameData);
+        transaction.update(oldGameRef, { nextGameId: newGameRef.id });
 
         console.log(`GAME_SERVICE: Rematch for ${oldGameId} successfully created as new game ID: ${newGameRef.id}.`);
         return newGameRef.id;

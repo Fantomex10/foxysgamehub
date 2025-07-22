@@ -60,10 +60,7 @@ const CrazyEightsTable = ({ gameMode }) => {
     const gameState = useGameState();
     const { userId: currentUserId } = useContext(FirebaseContext);
 
-    // FIXED: The local processingAction state and its corresponding useEffect have been removed.
-    // They were the source of the race condition.
-
-    const { playCard, drawCard, declareSuit } = useGameActions();
+    const { playCard, drawCard, declareSuit } = useGameActions(gameMode);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 10 } }),
@@ -97,18 +94,20 @@ const CrazyEightsTable = ({ gameMode }) => {
     const [activeDragId, setActiveDragId] = useState(null);
     const draggedCardData = activeDragId ? myHand.find(c => `${c.rank}-${c.suit}` === activeDragId) : null;
 
-    // FIXED: Removed the processingAction check. The isMyTurn check, derived
-    // from the server state, is the only source of truth required.
     const handlePlayCard = useCallback((card) => {
         if (!isMyTurn) {
             console.warn("[CrazyEightsTable] UI: Not your turn. Aborting playCard.");
             return;
         }
-        playCard(card);
+        if (card.rank === '8') {
+             // For online mode, the service needs to know it's an 8 to change status
+            playCard(card, null); // Pass null suit to indicate choice is needed
+        } else {
+            playCard(card);
+        }
     }, [isMyTurn, playCard]);
 
 
-    // FIXED: Removed the processingAction check here as well.
     const handleDrawCard = useCallback(() => {
         if (!isMyTurn) {
             console.warn("[CrazyEightsTable] UI: Not your turn. Aborting drawCard.");
@@ -118,11 +117,15 @@ const CrazyEightsTable = ({ gameMode }) => {
     }, [isMyTurn, drawCard]);
 
 
-    // FIXED: Removed processingAction check. This action is only available
-    // when it's the player's turn anyway.
     const handleSelectSuit = useCallback((suit) => {
-        declareSuit(suit);
-    }, [declareSuit]);
+         const lastCard = gameState.lastPlayedCard;
+         // In online mode, the service needs the original '8' card again with the chosen suit
+         if (gameMode === 'online' && lastCard?.rank === '8') {
+            playCard(lastCard, suit);
+         } else { // Offline mode handles this differently
+            declareSuit(suit);
+         }
+    }, [declareSuit, playCard, gameMode, gameState.lastPlayedCard]);
 
 
     const handleDragEnd = useCallback((event) => {
@@ -209,7 +212,7 @@ const CrazyEightsTable = ({ gameMode }) => {
                 {shouldShowSuitPicker && (
                     <SuitPicker
                         onSelectSuit={handleSelectSuit}
-                        onCancel={() => handleSelectSuit(null)}
+                        onCancel={() => { /* maybe handle cancel if rules require it */ }}
                     />
                 )}
 

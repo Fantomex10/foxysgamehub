@@ -1,16 +1,14 @@
 // =================================================================================
-// FILE: src/games/crazy_eights/logic.js (Updated)
+// FILE: src/games/crazy_eights/logic.js
 // =================================================================================
 // This file contains the pure, state-agnostic game logic for Crazy Eights.
 // It has no dependency on React or Firebase.
-//
-// KEY CHANGE: Added the 'isValidPlay' function required by the new GameEngine.
 // =================================================================================
 
 export const name = "Crazy Eights";
 
 /**
- * NEW FUNCTION: Checks if a card can be legally played on top of another.
+ * Checks if a card can be legally played on top of another.
  * @param {object} cardToPlay - The card the player wants to play.
  * @param {object} topCard - The current card on top of the discard pile.
  * @param {string} currentSuit - The active suit (if an 8 was played).
@@ -58,6 +56,12 @@ export const createShuffledDeck = (playerCount = 4, existingCards = []) => {
     return deck;
 };
 
+/**
+ * Deals cards to players from the deck.
+ * @param {Array<Object>} deck - The shuffled deck of cards.
+ * @param {Array<Object>} players - The players in the game.
+ * @returns {Object} An object containing the players' hands and the remaining deck.
+ */
 export const dealCards = (deck, players) => {
     const mutableDeck = [...deck];
     const hands = {};
@@ -74,7 +78,13 @@ export const dealCards = (deck, players) => {
     return { hands, remainingDeck: mutableDeck };
 };
 
-
+/**
+ * Determines the next player's turn, skipping offline players.
+ * @param {string} currentTurnId - The ID of the current player.
+ * @param {Array<Object>} players - The list of all players.
+ * @param {number} gameDirection - The direction of play (1 or -1).
+ * @returns {string|null} The ID of the next player.
+ */
 export const getNextTurn = (currentTurnId, players, gameDirection) => {
     const activePlayers = players.filter(p => p.status !== 'offline');
     if (activePlayers.length === 0) return null;
@@ -89,7 +99,13 @@ export const getNextTurn = (currentTurnId, players, gameDirection) => {
     return activePlayers[nextIndex].id;
 };
 
-export const applyCrazyEightsCardLogic = (card, { players, gameDirection, currentTurn, playersHands, drawPile }) => {
+/**
+ * Applies the special effects of a played card (e.g., skip, reverse).
+ * @param {Object} card - The card that was played.
+ * @param {Object} gameState - The current state of the game.
+ * @returns {Object} An object with the updated game state properties.
+ */
+export const applyCardLogic = (card, { players, gameDirection, currentTurn, playersHands, drawPile }) => {
     let nextTurn = getNextTurn(currentTurn, players, gameDirection);
     let newGameDirection = gameDirection;
     let newPlayersHands = { ...playersHands };
@@ -124,8 +140,8 @@ export const applyCrazyEightsCardLogic = (card, { players, gameDirection, curren
             }
             break;
         case '8':
-            // The logic for 'choosing_suit' is now handled in the engine,
-            // so we just need a message here.
+            // The logic for 'choosing_suit' is handled by the service/UI,
+            // so we just provide a message here.
             gameMessage = "Wild card played! Choose a new suit.";
             break;
     }

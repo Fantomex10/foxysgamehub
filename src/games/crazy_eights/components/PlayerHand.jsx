@@ -16,11 +16,9 @@ const chunk = (arr, size) => Array.from({ length: Math.ceil(arr.length / size) }
   arr.slice(i * size, i * size + size)
 );
 
-// FIXED: The DraggableCard now receives the onPlayCard prop.
-// While not used directly here, it's included for completeness if you were
-// to change the interaction model (e.g., from drag to click).
-// The main fix is in the PlayerHand component below.
-const DraggableCard = memo(({ card, isMyTurn, activeDragId }) => {
+// DraggableCard now accepts onPlayCard to ensure it re-renders when the function changes,
+// which is crucial for keeping its internal drag context up-to-date.
+const DraggableCard = memo(({ card, isMyTurn, activeDragId, onPlayCard }) => {
     const cardId = `${card.rank}-${card.suit}`;
 
     const { attributes, listeners, setNodeRef, transform } = useDraggable({
@@ -45,7 +43,7 @@ const DraggableCard = memo(({ card, isMyTurn, activeDragId }) => {
 });
 
 
-// FIXED: The PlayerHand component now accepts `onPlayCard` in its props list.
+// PlayerHand now correctly passes the onPlayCard prop to each DraggableCard.
 const PlayerHand = memo(({ cards, onPlayCard, isMyTurn, activeDragId }) => {
     const { width } = useScreenSize();
 
@@ -81,6 +79,7 @@ const PlayerHand = memo(({ cards, onPlayCard, isMyTurn, activeDragId }) => {
                                     card={card}
                                     isMyTurn={isMyTurn}
                                     activeDragId={activeDragId}
+                                    onPlayCard={onPlayCard}
                                 />
                             </div>
                         );
