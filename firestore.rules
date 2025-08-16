@@ -3,51 +3,42 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper Functions
+    // Helper function to check if a user is signed in.
     function isAuthenticated() {
       return request.auth != null;
     }
 
+    // Helper function to check if the requesting user is a player in the game.
     function isPlayer(game) {
-      return request.auth.uid in game.gameState.players.map(p => p.id);
+      return request.auth.uid in game.data.gameState.players.map(p => p.id);
     }
 
-    // Rules for accessing the main game document
+    // Rules for the 'games' collection
     match /artifacts/{appId}/public/data/games/{gameId} {
 
       // --- READ ---
-      // Allow any authenticated player to read the PUBLIC gameState.
-      // This rule explicitly DENIES reading the privateState.
-      allow get: if isAuthenticated(); // Needed for lobby list
-      allow list: if isAuthenticated(); // Needed for lobby list
-
-      // A player can only listen to real-time updates if they are in the game.
-      allow onSnapshot: if isPlayer(resource.data);
+      // Allow any authenticated user to read the list of games (for the lobby).
+      allow list, get: if isAuthenticated();
 
       // --- CREATE ---
-      // A user can create a game if they are authenticated and are the host.
+      // Anyone who is signed in can create a new game document,
+      // as long as they set themselves as the host.
       allow create: if isAuthenticated() && request.resource.data.gameState.host == request.auth.uid;
 
       // --- UPDATE ---
-      // Players in the game can update it. Specific actions are validated below.
-      allow update: if isPlayer(resource.data);
+      // Only players who are actually in the game are allowed to make changes to it.
+      allow update: if isPlayer(get(/databases/$(database)/documents/$(request.path)));
 
       // --- DELETE ---
-      // Only the host can delete a game.
+      // Only the host of the game can delete it.
       allow delete: if isAuthenticated() && resource.data.gameState.host == request.auth.uid;
     }
 
-    // Rules for accessing specific FIELDS within a game document
-    match /artifacts/{appId}/public/data/games/{gameId} {
-
-        // PUBLIC DATA: Anyone authenticated can read these fields.
-        allow read: if isAuthenticated();
-
-        // PRIVATE DATA: These rules override the general 'read' rule above.
-        match /privateState/playersHands/{playerId} {
-          // You can only read your own hand! This is the key security rule.
-          allow get: if request.auth.uid == playerId;
-        }
+    // Rules for accessing the private hands within a game
+    match /artifacts/{appId}/public/data/games/{gameId}/privateState/playersHands/{playerId} {
+        // --- READ ---
+        // A player can only read their own hand. This is the most critical rule to prevent cheating.
+        allow get: if isAuthenticated() && request.auth.uid == playerId;
     }
   }
 }
