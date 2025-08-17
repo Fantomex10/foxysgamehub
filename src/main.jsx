@@ -1,12 +1,9 @@
-// =================================================================================
-// FILE: src/main.jsx (UPDATED)
-// DESC: Now imports the main `index.css` file to ensure all global styles
-//       and Tailwind directives are applied to the entire application.
-// =================================================================================
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import './index.css'; // ADDED: Import the main stylesheet
+// This import is crucial. It makes sure the styles from index.css
+// are applied to your entire application.
+import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

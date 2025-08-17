@@ -1,14 +1,16 @@
 /*
-=================================================================================
-FILE: src/index.css (CORRECTED)
-DESC: This is the single source of truth for global styles.
-      - The problematic body background styles have been removed.
-=================================================================================
+These three lines are the Tailwind "directives".
+They are essential and must be at the top of your main CSS file.
+Tailwind replaces them with its generated styles during the build process.
 */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/*
+This section defines global styles and CSS variables for the application.
+It ensures a consistent look and feel.
+*/
 html, body, #root {
   height: 100%;
 }
