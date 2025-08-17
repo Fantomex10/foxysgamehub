@@ -13,8 +13,9 @@ DESC: This is now the single source of truth for global styles.
 @tailwind utilities;
 
 body {
-  @apply bg-gradient-to-br from-purple-900 to-indigo-900;
+  background-image: linear-gradient(to bottom right, #581c87, #312e81);
 }
+
 
 html, body, #root {
   height: 100%;

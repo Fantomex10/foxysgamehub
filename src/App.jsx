@@ -153,7 +153,7 @@ const AppContent = () => {
     return (
         <div className="min-h-screen w-full bg-gray-900 text-white font-sans flex flex-col">
 
-            <GlobalStyles />
+
             <Header isInGame={isInGame} gameData={gameData} onProfileClick={() => setIsProfileOpen(true)} onMenuClick={() => setIsMenuOpen(true)} />
             <ProfilePanel isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
             <MenuPanel isOpen={isMenuOpen} isInGame={isInGame} onClose={() => setIsMenuOpen(false)} onGoToLobby={handleGoToLobby} onOpenOptions={handleOpenOptions} onQuitGame={handleQuitGame} />
