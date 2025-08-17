@@ -14,8 +14,26 @@ export const OptionsComponent = CrazyEightsOptions;
 // Export a standardized 'logic' object.
 export const logic = {
   getInitialState: (players, gameOptions) => {
+    // --- FIX STARTS HERE ---
+    // If there are no players, we are just getting default options for the lobby.
+    // Return a default structure without dealing cards.
+    if (!players || players.length === 0) {
+        return {
+            drawPile: [],
+            discardPile: [],
+            playersHands: {},
+            currentTurn: null,
+            currentSuit: null,
+            gameDirection: 1,
+            lastPlayedCard: null,
+            gameOptions: gameOptions || { stackTwos: true, jackSkips: true }, // Provide default options
+        };
+    }
+    // --- FIX ENDS HERE ---
+
     const { hands, remainingDeck: deckAfterDealing } = dealCards(createShuffledDeck(players.length), players);
     const firstCard = deckAfterDealing.shift();
+
     return {
       drawPile: deckAfterDealing,
       discardPile: [firstCard],

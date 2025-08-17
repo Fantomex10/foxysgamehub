@@ -1,21 +1,13 @@
 /*
 =================================================================================
-FILE: src/index.css (UPDATED)
-DESC: This is now the single source of truth for global styles.
-      - It includes the standard Tailwind CSS directives.
-      - The body background styles from index.html have been moved here.
-      - The CSS variables and keyframes from the old GlobalStyles.jsx component
-        have been moved here.
+FILE: src/index.css (CORRECTED)
+DESC: This is the single source of truth for global styles.
+      - The problematic body background styles have been removed.
 =================================================================================
 */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-body {
-  background-image: linear-gradient(to bottom right, #581c87, #312e81);
-}
-
 
 html, body, #root {
   height: 100%;

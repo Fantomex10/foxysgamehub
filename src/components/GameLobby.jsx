@@ -1,4 +1,3 @@
-
 /*
 ================================================================================
 |
@@ -29,9 +28,10 @@ const GameLobby = ({ onCreateGame, onJoinGame, setGameMode, activeGameId }) => {
     const [message, setMessage] = useState('');
     const [activeTab, setActiveTab] = useState('start');
 
-
-    // REMOVED: Internal lastGameId state is gone.
-
+    // --- CORRECTED CODE ---
+    const [gameOptions, setGameOptions] = useState(gameRegistry[gameType]?.logic.getInitialState([], {}).gameOptions || {});
+    const OptionsComponent = gameRegistry[gameType]?.OptionsComponent;
+    // --- END CORRECTION ---
 
     useEffect(() => {
         if (playerName) localStorage.setItem('foxytcg-player-name', playerName);
