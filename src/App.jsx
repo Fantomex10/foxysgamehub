@@ -1,175 +1,207 @@
-/*
-================================================================================
-|
-| FILE: src/App.jsx
-|
-| DESCRIPTION: The Conductor.
-| - Passes currentGameId to the lobby to act as the single source of truth.
-| - Refactored ErrorBoundary to use the modern, hook-based `react-error-boundary`
-|   library for improved maintainability and code consistency.
-|
-================================================================================
-*/
-import React, { useState, useEffect, useContext } from 'react';
-import { ErrorBoundary } from 'react-error-boundary';
-import { FirebaseProvider, FirebaseContext } from './context/FirebaseProvider';
-import { UiProvider, useUi } from './context/UiProvider';
-import { GameProvider } from './context/GameProvider';
-import { useGameSession } from './hooks/useGameSession';
-import { useGameState } from './hooks/useGameState';
-import SplashScreen from './components/SplashScreen';
-import LoadingSpinner from './components/ui/LoadingSpinner';
-import GlobalStyles from './components/ui/GlobalStyles';
-import GameLobby from './components/GameLobby';
-import GameRoom from './games/crazy_eights/GameRoom';
-import Header from './components/ui/Header';
-import ProfilePanel from './components/ui/ProfilePanel';
-import MenuPanel from './components/ui/MenuPanel';
-import OptionsModal from './components/ui/OptionsModal';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import WelcomeScreen from './components/WelcomeScreen.jsx';
+import LobbyView from './components/LobbyView.jsx';
+import GameBoard from './components/GameBoard.jsx';
+import SuitPicker from './components/SuitPicker.jsx';
+import { initialRoomState, roomReducer } from './state/roomReducer.js';
 
-// A functional fallback component to be displayed when an error occurs.
-const ErrorFallback = ({ error }) => {
-    console.error("ErrorBoundary caught an error:", error);
-    return (
-        <div className="fixed inset-0 bg-red-900 bg-opacity-90 flex items-center justify-center z-[100]" role="alert">
-            <div className="bg-red-800 p-6 rounded-lg shadow-xl text-white text-center max-w-md mx-auto">
-                <h2 className="text-xl font-bold mb-3">Something went wrong!</h2>
-                <p className="mb-4 text-sm">Please try refreshing the page.</p>
-            </div>
-        </div>
-    );
+const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
+const BOT_THINK_DELAY = 700;
+
+const countSuitPreference = (hand) => {
+  return SUITS.map((suit) => ({
+    suit,
+    count: hand.filter((card) => card.suit === suit).length,
+  }))
+    .filter(({ count }) => count > 0)
+    .sort((a, b) => b.count - a.count);
 };
 
-const AppContent = () => {
-    const { isAuthReady, userId, error: authError } = useContext(FirebaseContext);
-    const { uiScale } = useUi();
+const chooseBotMove = (state, botPlayer) => {
+  const hand = state.hands[botPlayer.id] ?? [];
+  if (hand.length === 0) {
+    return { type: 'DRAW_CARD', payload: { playerId: botPlayer.id } };
+  }
 
-    const [currentGameId, setCurrentGameId] = useState(() => localStorage.getItem('foxytcg-lastGameId'));
-    const [isLoading, setIsLoading] = useState(!!currentGameId);
-    const [error, setError] = useState(null);
-    const [gameMode, setGameMode] = useState('online');
+  const topCard = state.discardPile[state.discardPile.length - 1] ?? null;
+  const activeSuit = state.activeSuit ?? topCard?.suit ?? null;
 
-    const { createGame, joinGame, goToLobby, quitGame } = useGameSession({
-        currentGameId,
-        setCurrentGameId,
-        setIsLoading,
-        setError,
-        setGameMode,
+  const playable = hand.filter((card) => {
+    if (card.rank === '8') return true;
+    if (activeSuit && card.suit === activeSuit) return true;
+    if (topCard && card.rank === topCard.rank) return true;
+    return false;
+  });
+
+  if (playable.length === 0) {
+    return { type: 'DRAW_CARD', payload: { playerId: botPlayer.id } };
+  }
+
+  const twos = playable.filter((card) => card.rank === '2');
+  if (twos.length > 0) {
+    return { type: 'PLAY_CARD', payload: { playerId: botPlayer.id, card: twos[0] } };
+  }
+
+  const suitMatches = playable.filter((card) => card.rank !== '8' && card.suit === activeSuit);
+  if (suitMatches.length > 0) {
+    return { type: 'PLAY_CARD', payload: { playerId: botPlayer.id, card: suitMatches[0] } };
+  }
+
+  const rankMatches = playable.filter(
+    (card) => card.rank !== '8' && topCard && card.rank === topCard.rank,
+  );
+  if (rankMatches.length > 0) {
+    return { type: 'PLAY_CARD', payload: { playerId: botPlayer.id, card: rankMatches[0] } };
+  }
+
+  const wilds = playable.filter((card) => card.rank === '8');
+  if (wilds.length > 0) {
+    const suitPreference = countSuitPreference(hand.filter((card) => card.id !== wilds[0].id));
+    const preferredSuit = suitPreference.length > 0 ? suitPreference[0].suit : SUITS[0];
+    return {
+      type: 'PLAY_CARD',
+      payload: { playerId: botPlayer.id, card: wilds[0], chosenSuit: preferredSuit },
+    };
+  }
+
+  return { type: 'DRAW_CARD', payload: { playerId: botPlayer.id } };
+};
+
+const pickSuitForHuman = (hand) => {
+  const counts = countSuitPreference(hand);
+  return counts.length > 0 ? counts[0].suit : SUITS[0];
+};
+
+function App() {
+  const [state, dispatch] = useReducer(roomReducer, initialRoomState);
+  const botMoveTimeoutRef = useRef(null);
+  const [pendingWildCard, setPendingWildCard] = useState(null);
+
+  const myHand = useMemo(() => state.hands[state.userId] ?? [], [state.hands, state.userId]);
+
+  useEffect(() => {
+    if (state.phase !== 'lobby') return;
+    const humans = state.players.filter((player) => !player.isBot);
+    if (humans.length === 0) return;
+    const humansReady = humans.every((player) => player.isReady);
+    const botsNeedReady = state.players.some((player) => player.isBot && !player.isReady);
+    if (humansReady && botsNeedReady) {
+      dispatch({ type: 'AUTO_READY_BOTS' });
+    }
+  }, [state.phase, state.players]);
+
+  useEffect(() => {
+    if (botMoveTimeoutRef.current) {
+      clearTimeout(botMoveTimeoutRef.current);
+      botMoveTimeoutRef.current = null;
+    }
+
+    if (state.phase !== 'playing') return;
+    const currentPlayer = state.players.find((player) => player.id === state.currentTurn);
+    if (!currentPlayer || !currentPlayer.isBot) return;
+
+    botMoveTimeoutRef.current = setTimeout(() => {
+      const action = chooseBotMove(state, currentPlayer);
+      if (action) {
+        dispatch(action);
+      }
+    }, BOT_THINK_DELAY);
+
+    return () => {
+      if (botMoveTimeoutRef.current) {
+        clearTimeout(botMoveTimeoutRef.current);
+        botMoveTimeoutRef.current = null;
+      }
+    };
+  }, [state.phase, state.currentTurn, state.players, state.hands, state.discardPile, state.drawPile, state.activeSuit]);
+
+  useEffect(() => () => {
+    if (botMoveTimeoutRef.current) {
+      clearTimeout(botMoveTimeoutRef.current);
+      botMoveTimeoutRef.current = null;
+    }
+  }, []);
+
+  if (state.phase === 'welcome') {
+    return (
+      <WelcomeScreen
+        name={state.userName}
+        onNameChange={(value) => dispatch({ type: 'SET_NAME', payload: value })}
+        onCreateRoom={() => dispatch({ type: 'CREATE_ROOM' })}
+      />
+    );
+  }
+
+  if (state.phase === 'lobby') {
+    return (
+      <LobbyView
+        roomId={state.roomId}
+        players={state.players}
+        hostId={state.hostId}
+        userId={state.userId}
+        banner={state.banner}
+        onToggleReady={(playerId) => dispatch({ type: 'TOGGLE_READY', payload: { playerId } })}
+        onStart={() => dispatch({ type: 'START_GAME' })}
+        onAddBot={() => dispatch({ type: 'ADD_BOT' })}
+        onRemoveBot={() => dispatch({ type: 'REMOVE_BOT' })}
+        onReturnToWelcome={() => dispatch({ type: 'RESET_SESSION' })}
+      />
+    );
+  }
+
+  const handlePlayCard = (card) => {
+    if (card.rank === '8') {
+      setPendingWildCard(card);
+      return;
+    }
+
+    dispatch({ type: 'PLAY_CARD', payload: { playerId: state.userId, card } });
+  };
+
+  const handleSelectSuit = (suit) => {
+    if (!pendingWildCard) return;
+    const chosenSuit = suit ?? pickSuitForHuman(myHand.filter((handCard) => handCard.id !== pendingWildCard.id));
+    dispatch({
+      type: 'PLAY_CARD',
+      payload: { playerId: state.userId, card: pendingWildCard, chosenSuit },
     });
+    setPendingWildCard(null);
+  };
 
-    const gameData = useGameState();
+  const handleCancelSuit = () => {
+    setPendingWildCard(null);
+  };
 
-    const [showSplash, setShowSplash] = useState(true);
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isOptionsOpen, setIsOptionsOpen] = useState(false);
+  return (
+    <>
+      <GameBoard
+        roomId={state.roomId}
+        players={state.players}
+        userId={state.userId}
+        drawPile={state.drawPile}
+        discardPile={state.discardPile}
+        activeSuit={state.activeSuit}
+        hand={myHand}
+        banner={state.banner}
+        history={state.history}
+        phase={state.phase}
+        currentTurn={state.currentTurn}
+        handLocked={Boolean(pendingWildCard)}
+        onPlayCard={handlePlayCard}
+        onDrawCard={() => dispatch({ type: 'DRAW_CARD', payload: { playerId: state.userId } })}
+        onReturnToLobby={() => dispatch({ type: 'RETURN_TO_LOBBY' })}
+        onResetSession={() => dispatch({ type: 'RESET_SESSION' })}
+      />
 
-    // Determine if the user is currently in an active game (not just in the lobby)
-    const isInGame = !!gameData?.id && gameData.status !== 'lobby';
-
-    // Effect for splash screen
-    useEffect(() => {
-        const timer = setTimeout(() => setShowSplash(false), 1500);
-        return () => clearTimeout(timer);
-    }, []);
-
-    // Effect for UI scaling
-    useEffect(() => {
-        document.body.classList.toggle('large-ui', uiScale === 'large');
-    }, [uiScale]);
-
-    // Handlers for menu actions
-    const handleGoToLobby = () => {
-        setIsMenuOpen(false);
-        goToLobby();
-        console.log("APP: Navigating to lobby.");
-    };
-
-    const handleQuitGame = () => {
-        // Using a custom modal/dialog is recommended instead of window.confirm for better UX
-        const confirmQuit = window.confirm("Are you sure you want to quit the game? This will forfeit the match and cannot be undone.");
-        if (confirmQuit) {
-            setIsMenuOpen(false);
-            quitGame();
-            console.log("APP: Quitting game.");
-        }
-    };
-
-    const handleOpenOptions = () => {
-        setIsMenuOpen(false);
-        setIsOptionsOpen(true);
-        console.log("APP: Opening options modal.");
-        // Crucial fix: When opening options, ensure any game-related UI state is reset if needed
-        // This was the source of the previous "freeze" bug.
-        // For now, we rely on OptionsModal's own onClose to reset its state.
-    }
-
-    const renderContent = () => {
-        console.log(`APP: renderContent - isLoading: ${isLoading}, currentGameId: ${currentGameId}, gameData.id: ${gameData?.id}, gameData.status: ${gameData?.status}, isInGame: ${isInGame}`);
-
-        // If we have a currentGameId but no gameData yet, we are loading.
-        // This condition ensures the spinner shows while waiting for Firestore data.
-        if ((isLoading || (currentGameId && !gameData.id)) && gameMode === 'online') {
-            return <div className="w-full h-full flex items-center justify-center"><LoadingSpinner message="Connecting..." /></div>;
-        }
-
-        // If we are in an active game, render the GameRoom
-        if (isInGame) {
-            console.log("APP: Rendering GameRoom.");
-            const isSpectator = gameData.spectators?.some(s => s.id === userId) && !gameData.players.some(p => p.id === userId);
-            return <GameRoom isSpectator={isSpectator} gameMode={gameMode} />;
-        }
-
-        // Otherwise, render the GameLobby
-        console.log("APP: Rendering GameLobby.");
-        return <GameLobby
-            onCreateGame={createGame}
-            onJoinGame={joinGame}
-            setGameMode={setGameMode}
-            activeGameId={currentGameId} // Pass the active game ID
-        />;
-    };
-
-    // Initial splash screen display
-    if (showSplash) {
-        console.log("APP: Showing SplashScreen.");
-        return <SplashScreen />;
-    }
-
-    // Authentication loading state
-    if (!isAuthReady) {
-        console.log("APP: Authenticating...");
-        return <div className="w-full h-full flex items-center justify-center"><LoadingSpinner message="Authenticating..." /></div>;
-    }
-
-    // Display any general errors
-    const displayError = error || authError;
-
-    return (
-        <div className="min-h-screen w-full bg-gray-900 text-white font-sans flex flex-col">
-            <GlobalStyles />
-            <Header isInGame={isInGame} gameData={gameData} onProfileClick={() => setIsProfileOpen(true)} onMenuClick={() => setIsMenuOpen(true)} />
-            <ProfilePanel isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
-            <MenuPanel isOpen={isMenuOpen} isInGame={isInGame} onClose={() => setIsMenuOpen(false)} onGoToLobby={handleGoToLobby} onOpenOptions={handleOpenOptions} onQuitGame={handleQuitGame} />
-            <main className={`pt-16 transition-all duration-300 ease-in-out flex-grow overflow-y-auto ${isProfileOpen ? 'md:ml-64' : ''}`}>
-                 <div className="p-0 h-full w-full flex-grow flex flex-col">
-                    {displayError && <div className="text-red-500 bg-red-900 p-3 rounded-md m-4 text-center">{displayError}</div>}
-                    {userId ? <ErrorBoundary FallbackComponent={ErrorFallback}>{renderContent()}</ErrorBoundary> : <div className="w-full h-full flex items-center justify-center"><LoadingSpinner /></div>}
-                 </div>
-            </main>
-            <OptionsModal isOpen={isOptionsOpen} onClose={() => setIsOptionsOpen(false)} gameData={gameData} />
-        </div>
-    );
-};
-
-const App = () => (
-    <FirebaseProvider>
-        <GameProvider>
-            <UiProvider>
-                <AppContent />
-            </UiProvider>
-        </GameProvider>
-    </FirebaseProvider>
-);
+      {pendingWildCard && (
+        <SuitPicker
+          suits={SUITS}
+          onSelect={handleSelectSuit}
+          onCancel={handleCancelSuit}
+        />
+      )}
+    </>
+  );
+}
 
 export default App;
