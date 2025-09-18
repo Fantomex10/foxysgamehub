@@ -1,207 +1,408 @@
-import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import WelcomeScreen from './components/WelcomeScreen.jsx';
-import LobbyView from './components/LobbyView.jsx';
-import GameBoard from './components/GameBoard.jsx';
-import SuitPicker from './components/SuitPicker.jsx';
-import { initialRoomState, roomReducer } from './state/roomReducer.js';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { getDefaultGameEngine, getGameEngineById, listGameEngines } from './games/index.js';
+import { createPhotonClient } from './services/photonClient.js';
+import { ensureUserSession, fetchPlayerProfile, upsertPlayerProfile } from './services/firebaseClient.js';
+import LoginHub from './components/LoginHub.jsx';
+import HubMenu from './components/HubMenu.jsx';
+import CreateLobbyForm from './components/CreateLobbyForm.jsx';
+import JoinLobbyList from './components/JoinLobbyList.jsx';
 
-const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
-const BOT_THINK_DELAY = 700;
-
-const countSuitPreference = (hand) => {
-  return SUITS.map((suit) => ({
-    suit,
-    count: hand.filter((card) => card.suit === suit).length,
-  }))
-    .filter(({ count }) => count > 0)
-    .sort((a, b) => b.count - a.count);
+const defaultEngine = getDefaultGameEngine();
+const APP_PHASES = {
+  LOGIN: 'login',
+  HUB: 'hub',
+  CREATE: 'create',
+  JOIN: 'join',
+  ROOM: 'room',
 };
 
-const chooseBotMove = (state, botPlayer) => {
-  const hand = state.hands[botPlayer.id] ?? [];
-  if (hand.length === 0) {
-    return { type: 'DRAW_CARD', payload: { playerId: botPlayer.id } };
-  }
+const useDefaultPlayerInteraction = ({ state, photon }) => {
+  const [_placeholder] = useState(null);
+  const hand = useMemo(() => state.hands[state.userId] ?? [], [state.hands, state.userId]);
+  const isMyTurn = state.currentTurn === state.userId && state.phase === 'playing';
+  const onPlayCard = (card) => {
+    if (!isMyTurn) return;
+    photon.playCard(state.userId, card);
+  };
+  return {
+    hand,
+    handLocked: !isMyTurn,
+    onPlayCard,
+    overlays: null,
+  };
+};
 
-  const topCard = state.discardPile[state.discardPile.length - 1] ?? null;
-  const activeSuit = state.activeSuit ?? topCard?.suit ?? null;
+const usePhotonRoomState = (photon, engine, authUser, { onProfileError, profileBlocked } = {}) => {
+  const [state, setState] = useState(() => photon.getState());
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const lastPersistedNameRef = useRef(null);
 
-  const playable = hand.filter((card) => {
-    if (card.rank === '8') return true;
-    if (activeSuit && card.suit === activeSuit) return true;
-    if (topCard && card.rank === topCard.rank) return true;
-    return false;
-  });
+  useEffect(() => {
+    if (!authUser) return undefined;
 
-  if (playable.length === 0) {
-    return { type: 'DRAW_CARD', payload: { playerId: botPlayer.id } };
-  }
+    setProfileLoaded(false);
 
-  const twos = playable.filter((card) => card.rank === '2');
-  if (twos.length > 0) {
-    return { type: 'PLAY_CARD', payload: { playerId: botPlayer.id, card: twos[0] } };
-  }
+    photon.setEngine(engine);
 
-  const suitMatches = playable.filter((card) => card.rank !== '8' && card.suit === activeSuit);
-  if (suitMatches.length > 0) {
-    return { type: 'PLAY_CARD', payload: { playerId: botPlayer.id, card: suitMatches[0] } };
-  }
+    photon.connect({
+      userId: authUser.uid,
+      userName: authUser.displayName ?? '',
+      engineId: engine.id,
+    });
 
-  const rankMatches = playable.filter(
-    (card) => card.rank !== '8' && topCard && card.rank === topCard.rank,
-  );
-  if (rankMatches.length > 0) {
-    return { type: 'PLAY_CARD', payload: { playerId: botPlayer.id, card: rankMatches[0] } };
-  }
+    const unsubscribe = photon.subscribe((nextState) => {
+      setState(nextState);
+    });
 
-  const wilds = playable.filter((card) => card.rank === '8');
-  if (wilds.length > 0) {
-    const suitPreference = countSuitPreference(hand.filter((card) => card.id !== wilds[0].id));
-    const preferredSuit = suitPreference.length > 0 ? suitPreference[0].suit : SUITS[0];
-    return {
-      type: 'PLAY_CARD',
-      payload: { playerId: botPlayer.id, card: wilds[0], chosenSuit: preferredSuit },
+    let cancelled = false;
+
+    if (authUser.isOffline || profileBlocked) {
+      setProfileLoaded(true);
+      return () => {
+        cancelled = true;
+        unsubscribe();
+      };
+    }
+
+    fetchPlayerProfile(authUser.uid)
+      .then((existingProfile) => {
+        if (cancelled) return;
+        if (existingProfile?.displayName) {
+          lastPersistedNameRef.current = existingProfile.displayName;
+          photon.setDisplayName(existingProfile.displayName);
+        }
+        setProfileLoaded(true);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        console.warn('[Firebase] Could not load player profile', error);
+        setProfileLoaded(true);
+        onProfileError?.();
+      });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
     };
-  }
+  }, [authUser, photon, engine, profileBlocked]);
 
-  return { type: 'DRAW_CARD', payload: { playerId: botPlayer.id } };
+  useEffect(() => {
+    if (!authUser || authUser.isOffline || profileBlocked) return;
+    const trimmedName = state.userName?.trim();
+    if (!trimmedName || trimmedName === lastPersistedNameRef.current) {
+      return;
+    }
+    upsertPlayerProfile(authUser.uid, { displayName: trimmedName })
+      .then(() => {
+        lastPersistedNameRef.current = trimmedName;
+      })
+      .catch((error) => {
+        console.warn('[Firebase] Failed to persist display name', error);
+        onProfileError?.();
+      });
+  }, [authUser, state.userName, engine, profileBlocked]);
+
+  return { state, profileLoaded };
 };
 
-const pickSuitForHuman = (hand) => {
-  const counts = countSuitPreference(hand);
-  return counts.length > 0 ? counts[0].suit : SUITS[0];
+const composeLobbyEntry = (snapshot, engine) => {
+  if (!snapshot?.roomId) return null;
+  const host = snapshot.players?.find((player) => player.id === snapshot.hostId);
+  return {
+    id: snapshot.roomId,
+    roomName: snapshot.roomName ?? `Room ${snapshot.roomId}`,
+    engineId: engine.id,
+    engineName: engine.name,
+    hostName: host?.name ?? 'Host',
+    playerCount: snapshot.players?.length ?? 0,
+    maxPlayers: snapshot.roomSettings?.maxPlayers ?? snapshot.players?.length ?? 0,
+    snapshot,
+  };
 };
 
 function App() {
-  const [state, dispatch] = useReducer(roomReducer, initialRoomState);
-  const botMoveTimeoutRef = useRef(null);
-  const [pendingWildCard, setPendingWildCard] = useState(null);
-
-  const myHand = useMemo(() => state.hands[state.userId] ?? [], [state.hands, state.userId]);
-
-  useEffect(() => {
-    if (state.phase !== 'lobby') return;
-    const humans = state.players.filter((player) => !player.isBot);
-    if (humans.length === 0) return;
-    const humansReady = humans.every((player) => player.isReady);
-    const botsNeedReady = state.players.some((player) => player.isBot && !player.isReady);
-    if (humansReady && botsNeedReady) {
-      dispatch({ type: 'AUTO_READY_BOTS' });
-    }
-  }, [state.phase, state.players]);
+  const [engine, setEngine] = useState(() => defaultEngine);
+  const [photon] = useState(() => createPhotonClient(engine));
+  const [authUser, setAuthUser] = useState(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [appPhase, setAppPhase] = useState(APP_PHASES.LOGIN);
+  const [availableRooms, setAvailableRooms] = useState([]);
+  const [profileBlocked, setProfileBlocked] = useState(false);
+  const engines = useMemo(() => listGameEngines(), []);
 
   useEffect(() => {
-    if (botMoveTimeoutRef.current) {
-      clearTimeout(botMoveTimeoutRef.current);
-      botMoveTimeoutRef.current = null;
-    }
-
-    if (state.phase !== 'playing') return;
-    const currentPlayer = state.players.find((player) => player.id === state.currentTurn);
-    if (!currentPlayer || !currentPlayer.isBot) return;
-
-    botMoveTimeoutRef.current = setTimeout(() => {
-      const action = chooseBotMove(state, currentPlayer);
-      if (action) {
-        dispatch(action);
-      }
-    }, BOT_THINK_DELAY);
+    let cancelled = false;
+    ensureUserSession()
+      .then((user) => {
+        if (cancelled) return;
+        setAuthUser(user);
+        setAuthReady(true);
+      })
+      .catch((error) => {
+        console.warn('[Firebase] Falling back to offline mode', error);
+        if (cancelled) return;
+        const fallback = {
+          uid: photon.getState().userId,
+          displayName: photon.getState().userName ?? '',
+          isOffline: true,
+        };
+        setAuthUser(fallback);
+        setAuthReady(true);
+      });
 
     return () => {
-      if (botMoveTimeoutRef.current) {
-        clearTimeout(botMoveTimeoutRef.current);
-        botMoveTimeoutRef.current = null;
-      }
+      cancelled = true;
     };
-  }, [state.phase, state.currentTurn, state.players, state.hands, state.discardPile, state.drawPile, state.activeSuit]);
+  }, [photon]);
 
-  useEffect(() => () => {
-    if (botMoveTimeoutRef.current) {
-      clearTimeout(botMoveTimeoutRef.current);
-      botMoveTimeoutRef.current = null;
-    }
-  }, []);
+  const { state, profileLoaded } = usePhotonRoomState(photon, engine, authUser, {
+    onProfileError: () => {
+      setProfileBlocked(true);
+      setAuthUser((prev) => (prev ? { ...prev, isOffline: true } : prev));
+    },
+    profileBlocked,
+  });
 
-  if (state.phase === 'welcome') {
-    return (
-      <WelcomeScreen
-        name={state.userName}
-        onNameChange={(value) => dispatch({ type: 'SET_NAME', payload: value })}
-        onCreateRoom={() => dispatch({ type: 'CREATE_ROOM' })}
-      />
-    );
-  }
+  const useInteractionHook = engine.hooks?.usePlayerInteraction ?? useDefaultPlayerInteraction;
+  const interaction = useInteractionHook({ state, photon, authUser, metadata: engine.metadata });
 
-  if (state.phase === 'lobby') {
-    return (
-      <LobbyView
-        roomId={state.roomId}
-        players={state.players}
-        hostId={state.hostId}
-        userId={state.userId}
-        banner={state.banner}
-        onToggleReady={(playerId) => dispatch({ type: 'TOGGLE_READY', payload: { playerId } })}
-        onStart={() => dispatch({ type: 'START_GAME' })}
-        onAddBot={() => dispatch({ type: 'ADD_BOT' })}
-        onRemoveBot={() => dispatch({ type: 'REMOVE_BOT' })}
-        onReturnToWelcome={() => dispatch({ type: 'RESET_SESSION' })}
-      />
-    );
-  }
+  const hand = interaction.hand ?? (state.hands[state.userId] ?? []);
+  const handLocked = interaction.handLocked ?? false;
+  const onPlayCard = interaction.onPlayCard ?? ((card) => photon.playCard(state.userId, card));
+  const overlays = interaction.overlays ?? null;
 
-  const handlePlayCard = (card) => {
-    if (card.rank === '8') {
-      setPendingWildCard(card);
+  useEffect(() => {
+    if (state.phase === 'finished' && state.gameOver) {
+      setAppPhase(APP_PHASES.HUB);
       return;
     }
 
-    dispatch({ type: 'PLAY_CARD', payload: { playerId: state.userId, card } });
+    if ((state.phase === 'roomLobby' || state.phase === 'playing' || state.phase === 'finished') && appPhase !== APP_PHASES.ROOM) {
+      setAppPhase(APP_PHASES.ROOM);
+      return;
+    }
+
+    if (appPhase === APP_PHASES.ROOM && state.phase === 'idle' && !state.roomId) {
+      setAppPhase(APP_PHASES.HUB);
+    }
+  }, [appPhase, state.phase, state.roomId, state.gameOver]);
+
+  const components = engine.components ?? {};
+  const LobbyComponent = components.Lobby ?? (() => null);
+  const TableComponent = components.Table;
+
+  useEffect(() => {
+    if (state.phase === 'roomLobby' && state.hostId === state.userId) {
+      const entry = composeLobbyEntry(photon.exportRoomSnapshot(), engine);
+      if (!entry) return;
+      setAvailableRooms((rooms) => {
+        const index = rooms.findIndex((lobby) => lobby.id === entry.id);
+        if (index === -1) {
+          return [...rooms, entry];
+        }
+        const next = [...rooms];
+        next[index] = entry;
+        return next;
+      });
+    }
+  }, [engine, photon, state.hostId, state.phase, state.players, state.roomId, state.roomName, state.roomSettings, state.userId]);
+
+  const updateUserDisplayName = (name) => {
+    photon.setDisplayName(name);
+    setAuthUser((previous) => (previous ? { ...previous, displayName: name } : previous));
   };
 
-  const handleSelectSuit = (suit) => {
-    if (!pendingWildCard) return;
-    const chosenSuit = suit ?? pickSuitForHuman(myHand.filter((handCard) => handCard.id !== pendingWildCard.id));
-    dispatch({
-      type: 'PLAY_CARD',
-      payload: { playerId: state.userId, card: pendingWildCard, chosenSuit },
+  const handleCreateLobby = (config) => {
+    const selectedEngine = getGameEngineById(config.engineId) ?? engine;
+    if (selectedEngine.id !== engine.id) {
+      setEngine(selectedEngine);
+      photon.setEngine(selectedEngine);
+    }
+
+    if (!authUser?.uid) return;
+
+    photon.createRoom({
+      settings: {
+        ...config.settings,
+        roomName: config.roomName,
+      },
     });
-    setPendingWildCard(null);
+
+    const snapshot = photon.exportRoomSnapshot();
+    const entry = composeLobbyEntry(snapshot, selectedEngine);
+    if (entry) {
+      setAvailableRooms((rooms) => {
+        const exists = rooms.some((item) => item.id === entry.id);
+        return exists ? rooms : [...rooms, entry];
+      });
+    }
+
   };
 
-  const handleCancelSuit = () => {
-    setPendingWildCard(null);
+  const handleJoinLobby = (lobby) => {
+    if (!authUser?.uid) return;
+    if (lobby.maxPlayers > 0 && lobby.playerCount >= lobby.maxPlayers) return;
+    const selectedEngine = getGameEngineById(lobby.engineId) ?? engine;
+    if (selectedEngine.id !== engine.id) {
+      setEngine(selectedEngine);
+      photon.setEngine(selectedEngine);
+    }
+
+    const localName = state.userName?.trim() || authUser?.displayName || 'Player';
+    photon.loadRoom(lobby.snapshot, { userId: authUser.uid, userName: localName });
+
+    const updatedSnapshot = photon.exportRoomSnapshot();
+    const entry = composeLobbyEntry(updatedSnapshot, selectedEngine);
+    if (entry) {
+      setAvailableRooms((rooms) => {
+        const index = rooms.findIndex((item) => item.id === entry.id);
+        if (index === -1) {
+          return [...rooms, entry];
+        }
+        const next = [...rooms];
+        next[index] = entry;
+        return next;
+      });
+    }
+
   };
 
-  return (
-    <>
-      <GameBoard
-        roomId={state.roomId}
-        players={state.players}
-        userId={state.userId}
-        drawPile={state.drawPile}
-        discardPile={state.discardPile}
-        activeSuit={state.activeSuit}
-        hand={myHand}
-        banner={state.banner}
-        history={state.history}
-        phase={state.phase}
-        currentTurn={state.currentTurn}
-        handLocked={Boolean(pendingWildCard)}
-        onPlayCard={handlePlayCard}
-        onDrawCard={() => dispatch({ type: 'DRAW_CARD', payload: { playerId: state.userId } })}
-        onReturnToLobby={() => dispatch({ type: 'RETURN_TO_LOBBY' })}
-        onResetSession={() => dispatch({ type: 'RESET_SESSION' })}
+  const handleReturnToHub = () => {
+    if (state.roomId && state.hostId === state.userId) {
+      setAvailableRooms((rooms) => rooms.filter((lobby) => lobby.id !== state.roomId));
+    }
+    photon.resetSession();
+    setAppPhase(APP_PHASES.HUB);
+  };
+
+  if (!authReady) {
+    return (
+      <div style={{ color: '#e2e8f0', textAlign: 'center', padding: '48px' }}>
+        Establishing session…
+      </div>
+    );
+  }
+
+  if (!profileLoaded && appPhase === APP_PHASES.ROOM && !profileBlocked) {
+    return (
+      <div style={{ color: '#e2e8f0', textAlign: 'center', padding: '48px' }}>
+        Synchronising profile…
+      </div>
+    );
+  }
+
+  if (!TableComponent) {
+    return (
+      <div style={{ color: '#f87171', textAlign: 'center', padding: '48px' }}>
+        Engine "{engine.name}" is missing a Table component.
+      </div>
+    );
+  }
+
+  if (appPhase === APP_PHASES.LOGIN) {
+    return (
+      <LoginHub
+        defaultName={authUser?.displayName ?? state.userName ?? ''}
+        onSubmit={(value) => {
+          updateUserDisplayName(value);
+          setAppPhase(APP_PHASES.HUB);
+        }}
       />
+    );
+  }
 
-      {pendingWildCard && (
-        <SuitPicker
-          suits={SUITS}
-          onSelect={handleSelectSuit}
-          onCancel={handleCancelSuit}
+  if (appPhase === APP_PHASES.HUB) {
+    return (
+      <HubMenu
+        onCreate={() => setAppPhase(APP_PHASES.CREATE)}
+        onJoin={() => setAppPhase(APP_PHASES.JOIN)}
+      />
+    );
+  }
+
+  if (appPhase === APP_PHASES.CREATE) {
+    return (
+      <CreateLobbyForm
+        engines={engines}
+        defaultEngineId={engine.id}
+        onCancel={() => setAppPhase(APP_PHASES.HUB)}
+        onCreate={handleCreateLobby}
+      />
+    );
+  }
+
+  if (appPhase === APP_PHASES.JOIN) {
+    return (
+      <JoinLobbyList
+        lobbies={availableRooms}
+        onJoin={handleJoinLobby}
+        onBack={() => setAppPhase(APP_PHASES.HUB)}
+      />
+    );
+  }
+
+  if (appPhase === APP_PHASES.ROOM && state.phase === 'idle') {
+    return null;
+  }
+
+  if (appPhase === APP_PHASES.ROOM) {
+
+    if (state.phase === 'roomLobby') {
+      return (
+        <LobbyComponent
+          roomId={state.roomId}
+          roomName={state.roomName}
+          players={state.players}
+          hostId={state.hostId}
+          userId={state.userId}
+          banner={state.banner}
+          onToggleReady={(playerId) => photon.toggleReady(playerId)}
+          onStart={() => photon.startGame()}
+          onAddBot={() => photon.addBot()}
+          onRemoveBot={() => photon.removeBot()}
+          onReturnToWelcome={() => photon.resetSession()}
+          onBackToHub={handleReturnToHub}
         />
-      )}
-    </>
-  );
+      );
+    }
+
+    return (
+      <>
+        <TableComponent
+          roomId={state.roomId}
+          roomName={state.roomName}
+          players={state.players}
+          userId={state.userId}
+          hostId={state.hostId}
+          phase={state.phase}
+          drawPile={state.drawPile}
+          discardPile={state.discardPile}
+          activeSuit={state.activeSuit}
+          hand={hand}
+          banner={state.banner}
+          history={state.history}
+          currentTurn={state.currentTurn}
+          handLocked={handLocked}
+          trick={state.trick}
+          lastTrick={state.lastTrick}
+          scores={state.scores}
+          roundScores={state.roundScores}
+          heartsBroken={state.heartsBroken}
+          gameOver={state.gameOver}
+          onPlayCard={onPlayCard}
+          onDrawCard={() => photon.drawCard(state.userId)}
+          onReturnToLobby={() => photon.returnToLobby()}
+          onResetSession={() => photon.resetSession()}
+          onReturnToHub={handleReturnToHub}
+          onStartRound={() => photon.startGame()}
+        />
+
+        {overlays}
+      </>
+    );
+  }
+
+  return null;
 }
 
 export default App;

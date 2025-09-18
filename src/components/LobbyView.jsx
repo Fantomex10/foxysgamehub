@@ -52,6 +52,7 @@ const subtleButton = {
 
 const LobbyView = ({
   roomId,
+  roomName,
   players,
   hostId,
   userId,
@@ -61,6 +62,7 @@ const LobbyView = ({
   onAddBot,
   onRemoveBot,
   onReturnToWelcome,
+  onBackToHub,
 }) => {
   const isHost = hostId === userId;
   const readyCount = players.filter((player) => player.isReady).length;
@@ -70,11 +72,16 @@ const LobbyView = ({
     <div style={cardStyle}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '28px', color: '#f8fafc' }}>Lobby · Room {roomId}</h2>
+          <h2 style={{ margin: 0, fontSize: '28px', color: '#f8fafc' }}>{roomName ?? `Room ${roomId}`}</h2>
+          <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Code {roomId}</p>
           <p style={{ marginTop: '6px', color: '#94a3b8', fontSize: '15px' }}>{banner}</p>
         </div>
-        <button type="button" onClick={onReturnToWelcome} style={subtleButton}>
-          Leave session
+        <button
+          type="button"
+          onClick={onBackToHub ?? onReturnToWelcome}
+          style={subtleButton}
+        >
+          Main menu
         </button>
       </header>
 

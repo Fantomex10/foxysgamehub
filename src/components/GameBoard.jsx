@@ -58,6 +58,7 @@ const prettySuit = (suit) => suit ? suit.charAt(0).toUpperCase() + suit.slice(1)
 
 const GameBoard = ({
   roomId,
+  roomName,
   players,
   userId,
   drawPile,
@@ -73,6 +74,7 @@ const GameBoard = ({
   onDrawCard,
   onReturnToLobby,
   onResetSession,
+  onReturnToHub,
 }) => {
   const isMyTurn = currentTurn === userId && phase === 'playing';
   const currentPlayer = players.find((player) => player.id === currentTurn);
@@ -84,7 +86,8 @@ const GameBoard = ({
     <div style={wrapperStyle}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '28px', color: '#f8fafc' }}>Room {roomId}</h1>
+          <h1 style={{ margin: 0, fontSize: '28px', color: '#f8fafc' }}>{roomName ?? `Room ${roomId}`}</h1>
+          <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Code {roomId}</p>
           <p style={{ marginTop: '4px', color: '#94a3b8', fontSize: '15px' }}>{banner}</p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
@@ -117,6 +120,21 @@ const GameBoard = ({
             }}
           >
             Reset session
+          </button>
+          <button
+            type="button"
+            onClick={onReturnToHub ?? (() => {})}
+            style={{
+              padding: '10px 16px',
+              borderRadius: '12px',
+              border: '1px solid rgba(148,163,184,0.35)',
+              background: 'rgba(86, 161, 245, 0.25)',
+              color: '#bfdbfe',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            Main menu
           </button>
         </div>
       </header>

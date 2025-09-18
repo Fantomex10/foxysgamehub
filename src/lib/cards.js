@@ -1,5 +1,5 @@
-const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
-const RANKS = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
+export const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
+export const RANKS = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
 
 export const SUIT_ICONS = {
   hearts: '♥',
