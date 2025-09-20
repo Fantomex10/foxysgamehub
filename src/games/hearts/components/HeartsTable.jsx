@@ -1,46 +1,9 @@
+import { useMemo } from 'react';
+import useMediaQuery from '../../../hooks/useMediaQuery.js';
+import { useTheme } from '../../../ui/ThemeContext.jsx';
 import Hand from '../../../components/Hand.jsx';
+import TableLayout from '../../../components/TableLayout.jsx';
 import { formatCard } from '../utils.js';
-
-const wrapperStyle = {
-  backgroundColor: 'rgba(15,23,42,0.85)',
-  border: '1px solid rgba(148,163,184,0.25)',
-  borderRadius: '24px',
-  padding: '32px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '24px',
-  boxShadow: '0 32px 64px rgba(15,23,42,0.6)',
-};
-
-const scoreboardStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-  gap: '12px',
-  background: 'rgba(15,23,42,0.55)',
-  border: '1px solid rgba(148,163,184,0.15)',
-  borderRadius: '18px',
-  padding: '18px',
-};
-
-const trickStyle = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-  gap: '12px',
-  background: 'rgba(30,41,59,0.8)',
-  border: '1px solid rgba(148,163,184,0.2)',
-  borderRadius: '18px',
-  padding: '18px',
-};
-
-const controlButton = (background, color = '#f8fafc') => ({
-  padding: '10px 16px',
-  borderRadius: '12px',
-  border: '1px solid rgba(148,163,184,0.35)',
-  background,
-  color,
-  fontWeight: 600,
-  cursor: 'pointer',
-});
 
 const HeartsTable = ({
   roomId,
@@ -54,56 +17,93 @@ const HeartsTable = ({
   lastTrick = [],
   scores,
   roundScores,
-  banner,
   heartsBroken,
   currentTurn,
   handLocked,
   gameOver,
   onPlayCard,
-  onReturnToLobby,
-  onResetSession,
-  onReturnToHub,
   onStartRound,
 }) => {
+  const { theme } = useTheme();
+  const isCompact = useMediaQuery('(max-width: 900px)');
+  const isExtraCompact = useMediaQuery('(max-width: 640px)');
+
   const trickList = Array.isArray(trick) ? trick : [];
   const fallbackTrick = Array.isArray(lastTrick) ? lastTrick : [];
   const displayTrick = trickList.length > 0 ? trickList : fallbackTrick;
   const trickByPlayer = displayTrick.reduce((acc, entry) => ({ ...acc, [entry.playerId]: entry.card }), {});
+
   const me = players.find((player) => player.id === userId);
+  const isSpectator = !(Array.isArray(players) && players.some((player) => player.id === userId));
   const isHost = hostId === userId;
 
-  return (
-    <div style={wrapperStyle}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: '28px', color: '#f8fafc' }}>{roomName ?? `Room ${roomId}`}</h1>
-          <p style={{ margin: 0, color: '#64748b', fontSize: '13px' }}>Code {roomId}</p>
-          <p style={{ marginTop: '4px', color: '#94a3b8', fontSize: '15px' }}>{banner}</p>
-          <p style={{ marginTop: '4px', color: heartsBroken ? '#f87171' : '#94a3b8', fontSize: '13px' }}>
-            Hearts broken: {heartsBroken ? 'Yes' : 'No'}
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <button type="button" onClick={onReturnToLobby} style={controlButton('rgba(15,118,110,0.45)')}>
-            Return to lobby
-          </button>
-          <button
-            type="button"
-            onClick={onResetSession}
-            style={controlButton('rgba(185,28,28,0.25)', '#fecaca')}
-          >
-            Reset session
-          </button>
-          <button
-            type="button"
-            onClick={onReturnToHub ?? (() => {})}
-            style={controlButton('rgba(59,130,246,0.25)', '#bfdbfe')}
-          >
-            Main menu
-          </button>
-        </div>
-      </header>
+  const scoreboardStyle = useMemo(() => ({
+    display: 'grid',
+    gridTemplateColumns: isExtraCompact
+      ? 'repeat(1, minmax(0, 1fr))'
+      : isCompact
+        ? 'repeat(2, minmax(0, 1fr))'
+        : 'repeat(auto-fit, minmax(180px, 1fr))',
+    gap: theme.spacing.sm,
+    background: theme.table?.panel ?? theme.colors.surfaceAlt,
+    border: `1px solid ${theme.table?.border ?? theme.colors.border}`,
+    borderRadius: theme.radii.lg,
+    padding: isCompact ? '16px' : '20px',
+    boxShadow: theme.shadows.panel,
+  }), [isCompact, isExtraCompact, theme]);
 
+  const trickStyle = useMemo(() => ({
+    display: 'grid',
+    gridTemplateColumns: isExtraCompact ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))',
+    gap: theme.spacing.sm,
+    background: theme.table?.panel ?? theme.colors.surfaceAlt,
+    border: `1px solid ${theme.table?.border ?? theme.colors.border}`,
+    borderRadius: theme.radii.lg,
+    padding: isCompact ? '16px' : '20px',
+  }), [isCompact, isExtraCompact, theme]);
+
+  const spectatorNoticeStyle = useMemo(() => ({
+    padding: '12px 16px',
+    borderRadius: theme.radii.sm,
+    border: `1px solid ${theme.colors.border}`,
+    background: theme.colors.surfaceMuted,
+    color: theme.colors.textSecondary,
+    fontSize: '13px',
+    textAlign: 'center',
+  }), [theme]);
+
+  const primaryButtonStyle = useMemo(() => ({
+    padding: '10px 16px',
+    borderRadius: theme.radii.sm,
+    border: 'none',
+    background: theme.buttons.primaryBg,
+    color: theme.buttons.primaryText,
+    fontWeight: 600,
+    cursor: 'pointer',
+  }), [theme]);
+
+  const actionRowStyle = useMemo(() => ({
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: isCompact ? 'stretch' : 'center',
+    gap: theme.spacing.md,
+    flexDirection: isCompact ? 'column' : 'row',
+    background: theme.colors.surfaceMuted,
+    border: `1px solid ${theme.colors.border}`,
+    borderRadius: theme.radii.md,
+    padding: '12px 16px',
+    color: theme.colors.textPrimary,
+  }), [isCompact, theme]);
+
+  return (
+    <TableLayout
+      title={roomName ?? `Room ${roomId}`}
+      subtitle={(
+        <span style={{ color: heartsBroken ? theme.colors.accentDanger : theme.colors.textMuted, fontSize: '13px' }}>
+          Hearts broken: {heartsBroken ? 'Yes' : 'No'}
+        </span>
+      )}
+    >
       <section style={scoreboardStyle}>
         {players.map((player) => {
           const total = (scores && scores[player.id]) ?? 0;
@@ -113,51 +113,52 @@ const HeartsTable = ({
             <div
               key={player.id}
               style={{
-                background: 'rgba(51,65,85,0.6)',
-                borderRadius: '14px',
-                border: `1px solid ${isCurrent ? 'rgba(96,165,250,0.45)' : 'rgba(148,163,184,0.15)'}`,
+                background: isCurrent ? theme.colors.surfaceAlt : theme.colors.surfaceMuted,
+                borderRadius: theme.radii.md,
+                border: `1px solid ${isCurrent ? theme.colors.accentPrimary : theme.colors.borderSubtle}`,
                 padding: '12px',
-                color: '#f8fafc',
+                color: theme.colors.textPrimary,
               }}
             >
               <div style={{ fontWeight: 600 }}>{player.name}</div>
-              <div style={{ fontSize: '13px', color: '#94a3b8' }}>Total: {total}</div>
-              <div style={{ fontSize: '13px', color: '#94a3b8' }}>Round: {round}</div>
+              <div style={{ fontSize: '13px', color: theme.colors.textMuted }}>Total: {total}</div>
+              <div style={{ fontSize: '13px', color: theme.colors.textMuted }}>Round: {round}</div>
             </div>
           );
         })}
       </section>
 
       <section>
-        <h3 style={{ margin: '0 0 12px', color: '#e2e8f0' }}>Current trick</h3>
+        <h3 style={{ margin: '0 0 12px', color: theme.colors.textPrimary }}>Current trick</h3>
         <div style={trickStyle}>
           {(players ?? []).map((player) => {
             const card = trickByPlayer[player.id];
+            const isCurrent = player.id === currentTurn && phase === 'playing';
             return (
               <div
                 key={`trick-${player.id}`}
                 style={{
-                  background: 'rgba(15,23,42,0.6)',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(148,163,184,0.2)',
+                  background: theme.colors.surfaceMuted,
+                  borderRadius: theme.radii.sm,
+                  border: `1px solid ${isCurrent ? theme.colors.accentPrimary : theme.colors.borderSubtle}`,
                   padding: '12px',
-                  color: '#f8fafc',
+                  color: theme.colors.textPrimary,
                   minHeight: '72px',
                   position: 'relative',
                 }}
               >
                 <div style={{ fontWeight: 600, marginBottom: '6px' }}>{player.name}</div>
-                <div style={{ color: '#94a3b8', fontSize: '14px' }}>
+                <div style={{ color: theme.colors.textMuted, fontSize: '14px' }}>
                   {card ? formatCard(card) : '—'}
                 </div>
-                {player.id === currentTurn && phase === 'playing' && (
+                {isCurrent && (
                   <div
                     style={{
                       position: 'absolute',
                       top: '8px',
                       right: '12px',
                       fontSize: '11px',
-                      color: '#38bdf8',
+                      color: theme.colors.accentPrimary,
                     }}
                   >
                     Playing
@@ -170,25 +171,13 @@ const HeartsTable = ({
       </section>
 
       {phase === 'finished' && (
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            gap: '12px',
-            background: 'rgba(31,41,55,0.6)',
-            border: '1px solid rgba(148,163,184,0.2)',
-            borderRadius: '12px',
-            padding: '12px 16px',
-            color: '#e2e8f0',
-          }}
-        >
+        <div style={actionRowStyle}>
           <span>{gameOver ? 'Match complete. Return to the lobby to start a new game.' : 'Round complete. Host may begin the next round.'}</span>
           {!gameOver && isHost && onStartRound && (
             <button
               type="button"
               onClick={onStartRound}
-              style={controlButton('rgba(34,197,94,0.25)', '#bbf7d0')}
+              style={primaryButtonStyle}
             >
               Start next round
             </button>
@@ -197,15 +186,23 @@ const HeartsTable = ({
       )}
 
       <div>
-        <h2 style={{ fontSize: '18px', marginBottom: '12px', color: '#e2e8f0' }}>
-          {me ? `${me.name}'s hand` : 'Your hand'}
-        </h2>
-        <Hand cards={hand} onPlayCard={onPlayCard} disabled={handLocked} />
-        <div style={{ marginTop: '8px', fontSize: '12px', color: '#94a3b8' }}>
-          {handLocked ? 'Waiting for your turn…' : 'Select a legal card to play.'}
-        </div>
+        {isSpectator ? (
+          <div style={spectatorNoticeStyle}>
+            You're watching from the spectator bench. Enjoy the match!
+          </div>
+        ) : (
+          <>
+            <h2 style={{ fontSize: '18px', marginBottom: '12px', color: theme.colors.textPrimary }}>
+              {me ? `${me.name}'s hand` : 'Your hand'}
+            </h2>
+            <Hand cards={hand} onPlayCard={onPlayCard} disabled={handLocked} />
+            <div style={{ marginTop: '8px', fontSize: '12px', color: theme.colors.textMuted }}>
+              {handLocked ? 'Waiting for your turn…' : 'Select a legal card to play.'}
+            </div>
+          </>
+        )}
       </div>
-    </div>
+    </TableLayout>
   );
 };
 

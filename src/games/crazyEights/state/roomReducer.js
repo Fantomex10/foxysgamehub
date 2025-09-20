@@ -4,11 +4,47 @@ const HISTORY_LIMIT = 8;
 const HAND_SIZE = 5;
 
 const DEFAULT_SETTINGS = {
-  maxPlayers: 4,
+  maxPlayers: 8,
   initialBots: 0,
   rules: {},
   roomName: '',
 };
+
+const STATUS_SEQUENCE = ['notReady', 'ready', 'needsTime'];
+
+const getNextStatus = (current) => {
+  const index = STATUS_SEQUENCE.indexOf(current);
+  const safeIndex = index === -1 ? 0 : index;
+  return STATUS_SEQUENCE[(safeIndex + 1) % STATUS_SEQUENCE.length];
+};
+
+const normaliseStatus = (player) => {
+  if (player.status && STATUS_SEQUENCE.includes(player.status)) {
+    return player.status;
+  }
+  return player.isReady ? 'ready' : 'notReady';
+};
+
+const clampSeatLimit = (count) => {
+  const minSeats = 2;
+  const maxSeats = DEFAULT_SETTINGS.maxPlayers;
+  const safeCount = Number.isFinite(count) ? Math.floor(count) : maxSeats;
+  return Math.min(Math.max(safeCount, minSeats), maxSeats);
+};
+
+const prepareSeatedPlayer = (player) => ({
+  ...player,
+  isSpectator: false,
+  isReady: false,
+  status: 'notReady',
+});
+
+const prepareSpectator = (player) => ({
+  ...player,
+  isSpectator: true,
+  isReady: false,
+  status: 'notReady',
+});
 
 const makeId = (prefix) => `${prefix}-${Math.random().toString(36).slice(2, 8)}`;
 const makeRoomCode = () => Math.random().toString(36).slice(2, 6).toUpperCase();
@@ -21,6 +57,7 @@ const createBaseState = () => ({
   roomName: null,
   hostId: null,
   players: [],
+  spectators: [],
   hands: {},
   drawPile: [],
   discardPile: [],
@@ -45,7 +82,8 @@ const getNextPlayerId = (players, currentId) => {
 };
 
 const dealHandsForPlayers = (players, handSize = HAND_SIZE) => {
-  const deck = shuffle(createDeck());
+  const deckCount = players.length >= 5 ? 2 : 1;
+  const deck = shuffle(createDeck(deckCount));
   const hands = {};
   let cursor = 0;
 
@@ -124,13 +162,18 @@ export const roomReducer = (state, action) => {
         ...payloadSettings,
         rules: { ...DEFAULT_SETTINGS.rules, ...(payloadSettings.rules ?? {}) },
       };
-      const roomId = makeRoomCode();
+      const providedRoomId = action.payload?.roomId;
+      const normalisedRoomId = typeof providedRoomId === 'string' && providedRoomId.trim().length > 0
+        ? providedRoomId.trim().toUpperCase()
+        : null;
+      const roomId = normalisedRoomId ?? makeRoomCode();
       const hostPlayer = {
         id: state.userId,
         name: state.userName.trim(),
         isHost: true,
         isBot: false,
         isReady: false,
+        status: 'notReady',
       };
       const players = [hostPlayer];
       let botCounter = 1;
@@ -141,6 +184,7 @@ export const roomReducer = (state, action) => {
           isBot: true,
           isHost: false,
           isReady: false,
+          status: 'notReady',
         };
         players.push(botPlayer);
         botCounter += 1;
@@ -152,6 +196,7 @@ export const roomReducer = (state, action) => {
         roomName: config.roomName || `Room ${roomId}`,
         hostId: state.userId,
         players,
+        spectators: [],
         hands: {},
         drawPile: [],
         discardPile: [],
@@ -166,19 +211,165 @@ export const roomReducer = (state, action) => {
 
     case 'TOGGLE_READY': {
       const { playerId } = action.payload;
-      const updatedPlayers = state.players.map((player) =>
-        player.id === playerId ? { ...player, isReady: !player.isReady } : player,
-      );
+      const updatedPlayers = state.players.map((player) => {
+        if (player.id !== playerId) return player;
+        const currentStatus = normaliseStatus(player);
+        const nextStatus = getNextStatus(currentStatus);
+        return {
+          ...player,
+          status: nextStatus,
+          isReady: nextStatus === 'ready',
+        };
+      });
       return {
         ...state,
         players: updatedPlayers,
       };
     }
 
+    case 'SET_PLAYER_STATUS': {
+      const { playerId, status } = action.payload;
+      if (!STATUS_SEQUENCE.includes(status)) {
+        return state;
+      }
+      const players = state.players.map((player) => {
+        if (player.id !== playerId) return player;
+        return {
+          ...player,
+          status,
+          isReady: status === 'ready',
+        };
+      });
+      return {
+        ...state,
+        players,
+      };
+    }
+
+
+    case 'SET_SEAT_LAYOUT': {
+      if (state.phase !== 'roomLobby') {
+        return state;
+      }
+      const requestedSeats = action.payload?.maxSeats;
+      const seatLimit = clampSeatLimit(requestedSeats);
+      const kickedIds = Array.isArray(action.payload?.kickedIds)
+        ? action.payload.kickedIds.filter((id) => typeof id === 'string')
+        : [];
+      const kickedSet = new Set(kickedIds);
+      if (state.hostId) {
+        kickedSet.delete(state.hostId);
+      }
+      const seatOrder = Array.isArray(action.payload?.seatOrder)
+        ? action.payload.seatOrder.filter((id) => !kickedSet.has(id))
+        : [];
+      const benchOrder = Array.isArray(action.payload?.benchOrder)
+        ? action.payload.benchOrder.filter((id) => !kickedSet.has(id))
+        : [];
+      const spectators = Array.isArray(state.spectators) ? state.spectators : [];
+
+      const playerMap = new Map();
+      state.players.forEach((player) => {
+        if (!kickedSet.has(player.id)) {
+          playerMap.set(player.id, player);
+        }
+      });
+      spectators.forEach((spectator) => {
+        if (!kickedSet.has(spectator.id)) {
+          playerMap.set(spectator.id, spectator);
+        }
+      });
+
+      if (!playerMap.has(state.userId) && state.userName && !kickedSet.has(state.userId)) {
+        playerMap.set(state.userId, {
+          id: state.userId,
+          name: state.userName.trim() || 'Player',
+          isBot: false,
+          isHost: state.hostId === state.userId,
+          isReady: false,
+          status: 'notReady',
+          isSpectator: false,
+        });
+      }
+
+      const orderedSeatIds = [];
+      const pushSeat = (id) => {
+        if (!playerMap.has(id)) return;
+        if (orderedSeatIds.includes(id)) return;
+        orderedSeatIds.push(id);
+      };
+
+      seatOrder.forEach(pushSeat);
+
+      if (state.hostId && playerMap.has(state.hostId) && !orderedSeatIds.includes(state.hostId)) {
+        orderedSeatIds.unshift(state.hostId);
+      }
+
+      for (const player of state.players) {
+        if (kickedSet.has(player.id)) continue;
+        if (orderedSeatIds.length >= seatLimit) break;
+        pushSeat(player.id);
+      }
+
+      if (orderedSeatIds.length > seatLimit) {
+        orderedSeatIds.splice(seatLimit);
+      }
+
+      if (orderedSeatIds.length === 0) {
+        const fallback = state.hostId && playerMap.has(state.hostId)
+          ? state.hostId
+          : state.players[0]?.id ?? Array.from(playerMap.keys())[0];
+        if (fallback) {
+          orderedSeatIds.push(fallback);
+        }
+      }
+
+      const seatSet = new Set(orderedSeatIds);
+      const orderedBenchIds = [];
+      const pushBench = (id) => {
+        if (!playerMap.has(id)) return;
+        if (seatSet.has(id)) return;
+        if (orderedBenchIds.includes(id)) return;
+        orderedBenchIds.push(id);
+      };
+
+      benchOrder.forEach(pushBench);
+      playerMap.forEach((_, id) => {
+        pushBench(id);
+      });
+
+      const nextPlayers = orderedSeatIds
+        .map((id) => playerMap.get(id))
+        .filter(Boolean)
+        .map((player) => prepareSeatedPlayer(player));
+
+      const nextSpectators = orderedBenchIds
+        .map((id) => playerMap.get(id))
+        .filter(Boolean)
+        .map((player) => prepareSpectator(player));
+
+      const nextHands = Object.fromEntries(
+        Object.entries(state.hands ?? {}).filter(([playerId]) => !kickedSet.has(playerId)),
+      );
+
+      return {
+        ...state,
+        players: nextPlayers,
+        spectators: nextSpectators,
+        roomSettings: {
+          ...state.roomSettings,
+          maxPlayers: seatLimit,
+        },
+        currentTurn: null,
+        banner: 'Waiting for players to ready up…',
+        hands: nextHands,
+      };
+    }
+
     case 'AUTO_READY_BOTS': {
       if (state.phase !== 'roomLobby') return state;
       const players = state.players.map((player) =>
-        player.isBot ? { ...player, isReady: true } : player,
+        player.isBot ? { ...player, isReady: true, status: 'ready' } : player,
       );
       return { ...state, players };
     }
@@ -202,6 +393,7 @@ export const roomReducer = (state, action) => {
         isBot: true,
         isHost: false,
         isReady: false,
+        status: 'notReady',
       };
       return {
         ...state,
@@ -215,11 +407,20 @@ export const roomReducer = (state, action) => {
         return state;
       }
       const lastBotIndex = [...state.players].reverse().findIndex((player) => player.isBot);
-      if (lastBotIndex === -1) return state;
-      const indexToRemove = state.players.length - 1 - lastBotIndex;
+      if (lastBotIndex !== -1) {
+        const indexToRemove = state.players.length - 1 - lastBotIndex;
+        return {
+          ...state,
+          players: state.players.filter((_, index) => index !== indexToRemove),
+        };
+      }
+      const spectators = state.spectators ?? [];
+      const lastBenchBotIndex = [...spectators].reverse().findIndex((player) => player.isBot);
+      if (lastBenchBotIndex === -1) return state;
+      const benchIndexToRemove = spectators.length - 1 - lastBenchBotIndex;
       return {
         ...state,
-        players: state.players.filter((_, index) => index !== indexToRemove),
+        spectators: spectators.filter((_, index) => index !== benchIndexToRemove),
       };
     }
 
@@ -248,7 +449,7 @@ export const roomReducer = (state, action) => {
         activeSuit: startingSuit,
         history,
         banner: `${firstPlayer.name}'s turn`,
-        players: state.players.map((player) => ({ ...player, isReady: false })),
+        players: state.players.map((player) => ({ ...player, isReady: false, status: 'notReady' })),
       };
     }
 
@@ -412,13 +613,14 @@ export const roomReducer = (state, action) => {
         activeSuit: null,
         history: [],
         banner: 'Waiting for players to ready up…',
-        players: state.players.map((player) => ({ ...player, isReady: false })),
+        players: state.players.map((player) => prepareSeatedPlayer(player)),
+        spectators: (state.spectators ?? []).map((spectator) => prepareSpectator(spectator)),
       };
     }
 
     case 'RESET_SESSION': {
       const next = createInitialState({ userId: state.userId, userName: state.userName });
-      return { ...next, players: [] };
+      return { ...next, players: [], spectators: [] };
     }
 
     default:

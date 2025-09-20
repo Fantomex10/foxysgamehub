@@ -1,5 +1,20 @@
 const cloneState = (state) => JSON.parse(JSON.stringify(state));
 
+const normalisePlayerStatus = (player) => ({
+  ...player,
+  isSpectator: false,
+  status: ['notReady', 'ready', 'needsTime'].includes(player.status)
+    ? player.status
+    : (player.isReady ? 'ready' : 'notReady'),
+});
+
+const normaliseSpectator = (player) => ({
+  ...player,
+  isSpectator: true,
+  isReady: false,
+  status: 'notReady',
+});
+
 class PhotonClient {
   constructor(engine) {
     this.engine = engine;
@@ -55,11 +70,22 @@ class PhotonClient {
   }
 
   createRoom(options) {
-    this.dispatch({ type: 'CREATE_ROOM', payload: { settings: options?.settings } });
+    this.dispatch({ type: 'CREATE_ROOM', payload: { settings: options?.settings, roomId: options?.roomId } });
   }
 
   toggleReady(playerId) {
     this.dispatch({ type: 'TOGGLE_READY', payload: { playerId } });
+  }
+
+  setPlayerStatus(playerId, status) {
+    this.dispatch({ type: 'SET_PLAYER_STATUS', payload: { playerId, status } });
+  }
+
+  updateSeatLayout({ seatOrder, benchOrder, maxSeats, kickedIds }) {
+    this.dispatch({
+      type: 'SET_SEAT_LAYOUT',
+      payload: { seatOrder, benchOrder, maxSeats, kickedIds },
+    });
   }
 
   addBot() {
@@ -100,26 +126,62 @@ class PhotonClient {
     if (!Array.isArray(snapshot.players)) {
       snapshot.players = [];
     }
-    const maxPlayers = snapshot.roomSettings?.maxPlayers ?? Infinity;
-    const existingIndex = snapshot.players.findIndex((player) => player.id === userId);
-    if (existingIndex === -1) {
-      if (snapshot.players.length >= maxPlayers) {
-        return;
+    snapshot.players = snapshot.players
+      .map((player) => normalisePlayerStatus({ ...player }))
+      .filter((player, index, array) => array.findIndex((candidate) => candidate.id === player.id) === index);
+    if (!Array.isArray(snapshot.spectators)) {
+      snapshot.spectators = [];
+    }
+    snapshot.spectators = snapshot.spectators
+      .map((spectator) => normaliseSpectator({ ...spectator }))
+      .filter((spectator, index, array) => array.findIndex((candidate) => candidate.id === spectator.id) === index);
+
+    const seatLimit = snapshot.roomSettings?.maxPlayers ?? Infinity;
+
+    const playerIndex = snapshot.players.findIndex((player) => player.id === userId);
+    const spectatorIndex = snapshot.spectators.findIndex((spectator) => spectator.id === userId);
+
+    if (playerIndex === -1 && spectatorIndex === -1) {
+      if (snapshot.players.length >= seatLimit) {
+        snapshot.spectators.push(normaliseSpectator({ id: userId, name: userName, isBot: false, isHost: false }));
+      } else {
+        snapshot.players.push({
+          id: userId,
+          name: userName,
+          isBot: false,
+          isHost: false,
+          isReady: false,
+          status: 'notReady',
+          isSpectator: false,
+        });
       }
-      snapshot.players.push({
-        id: userId,
+    } else if (playerIndex >= 0) {
+      snapshot.players[playerIndex] = normalisePlayerStatus({
+        ...snapshot.players[playerIndex],
+        name: userName,
+        isBot: false,
+      });
+    } else if (spectatorIndex >= 0) {
+      snapshot.spectators[spectatorIndex] = normaliseSpectator({
+        ...snapshot.spectators[spectatorIndex],
         name: userName,
         isBot: false,
         isHost: false,
-        isReady: false,
       });
-    } else {
-      snapshot.players[existingIndex] = {
-        ...snapshot.players[existingIndex],
-        name: userName,
-        isBot: false,
-      };
     }
+
+    if (snapshot.hostId && snapshot.players.every((player) => player.id !== snapshot.hostId)) {
+      const hostSpectatorIndex = snapshot.spectators.findIndex((spectator) => spectator.id === snapshot.hostId);
+      if (hostSpectatorIndex >= 0) {
+        const [hostRecord] = snapshot.spectators.splice(hostSpectatorIndex, 1);
+        if (snapshot.players.length >= seatLimit) {
+          snapshot.spectators.push(normaliseSpectator(hostRecord));
+        } else {
+          snapshot.players.unshift(normalisePlayerStatus(hostRecord));
+        }
+      }
+    }
+
     snapshot.phase = snapshot.phase === 'playing' || snapshot.phase === 'finished' ? snapshot.phase : 'roomLobby';
     this.state = snapshot;
     this.notify();

@@ -17,16 +17,18 @@ export const SUIT_COLORS = {
 
 let nextId = 1;
 
-export const createDeck = () => {
+export const createDeck = (deckCount = 1) => {
   nextId = 1; // reset for deterministic ids between games
   const deck = [];
-  for (const suit of SUITS) {
-    for (const rank of RANKS) {
-      deck.push({
-        id: `${rank}-${suit}-${nextId++}`,
-        suit,
-        rank,
-      });
+  for (let copy = 0; copy < deckCount; copy += 1) {
+    for (const suit of SUITS) {
+      for (const rank of RANKS) {
+        deck.push({
+          id: `${rank}-${suit}-${nextId++}`,
+          suit,
+          rank,
+        });
+      }
     }
   }
   return deck;
