@@ -1,5 +1,10 @@
 import LobbyView from '../../components/LobbyView.jsx';
 import WelcomeScreen from '../../components/WelcomeScreen.jsx';
+import {
+  LOBBY_COMPONENT_CONTRACT,
+  TABLE_COMPONENT_CONTRACT,
+  wrapEngineComponent,
+} from './engineComponentGuard.js';
 
 const defaultRoomInfo = ({ state, fallbackName = 'Friendly match' }) => ({
   title: state.roomName ?? fallbackName,
@@ -88,12 +93,26 @@ export const resolveEngineModules = (engine) => {
     getRoomInfo: defaultRoomInfo,
   }, modules.table);
 
+  const guardedLobbyModule = {
+    ...lobbyModule,
+    Component: lobbyModule.Component
+      ? wrapEngineComponent('Lobby', lobbyModule.Component, LOBBY_COMPONENT_CONTRACT)
+      : lobbyModule.Component,
+  };
+
+  const guardedTableModule = {
+    ...tableModule,
+    Component: tableModule.Component
+      ? wrapEngineComponent('Table', tableModule.Component, TABLE_COMPONENT_CONTRACT)
+      : tableModule.Component,
+  };
+
   return {
     welcome: {
       Component: welcomeComponent,
       ...modules.welcome,
     },
-    lobby: lobbyModule,
-    table: tableModule,
+    lobby: guardedLobbyModule,
+    table: guardedTableModule,
   };
 };

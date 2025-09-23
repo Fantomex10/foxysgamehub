@@ -1,6 +1,6 @@
-import { useCustomizationTokens } from '../customization/CustomizationContext.jsx';
-import { SUIT_COLORS } from '../lib/cards.js';
-import Card from './Card.jsx';
+import { useCustomizationTokens } from '../../../customization/CustomizationContext.jsx';
+import { SUIT_COLORS } from '../../../lib/cards.js';
+import Card from '../../../components/Card.jsx';
 
 const DiscardPile = ({ cards, activeSuit }) => {
   const { theme, scaleFont, cards: cardTokens } = useCustomizationTokens();

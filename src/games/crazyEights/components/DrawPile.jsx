@@ -1,4 +1,4 @@
-import { useCustomizationTokens } from '../customization/CustomizationContext.jsx';
+import { useCustomizationTokens } from '../../../customization/CustomizationContext.jsx';
 
 const DrawPile = ({ remaining, onDraw, disabled = false }) => {
   const { theme, cards, pieces, scaleFont } = useCustomizationTokens();

@@ -1,6 +1,6 @@
 import WelcomeScreen from '../../components/WelcomeScreen.jsx';
 import LobbyView from '../../components/LobbyView.jsx';
-import GameBoard from '../../components/GameBoard.jsx';
+import GameBoard from './components/GameBoard.jsx';
 import SuitPicker from '../../components/SuitPicker.jsx';
 import { SUITS } from '../../lib/cards.js';
 import { chooseBotMove, pickSuitForHuman } from './logic/bot.js';

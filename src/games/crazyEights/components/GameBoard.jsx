@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
-import useMediaQuery from '../hooks/useMediaQuery.js';
-import { useCustomizationTokens } from '../customization/CustomizationContext.jsx';
+import useMediaQuery from '../../../hooks/useMediaQuery.js';
+import { useCustomizationTokens } from '../../../customization/CustomizationContext.jsx';
+import Hand from '../../../components/Hand.jsx';
+import TableLayout from '../../../components/TableLayout.jsx';
+import { createPanelContainerStyle } from '../../../ui/stylePrimitives.js';
+import { withAlpha } from '../../../ui/colorUtils.js';
 import DrawPile from './DrawPile.jsx';
 import DiscardPile from './DiscardPile.jsx';
-import Hand from './Hand.jsx';
-import TableLayout from './TableLayout.jsx';
-import { createPanelContainerStyle } from '../ui/stylePrimitives.js';
-import { withAlpha } from '../ui/colorUtils.js';
 
 const prettySuit = (suit) => (suit ? suit.charAt(0).toUpperCase() + suit.slice(1) : '—');
 

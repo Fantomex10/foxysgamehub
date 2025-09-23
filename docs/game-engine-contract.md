@@ -60,6 +60,17 @@ When extending the hub with a new engine, start with these helpers and add game-
 - `modules.lobby` – `{ Component, getMenuSections(ctx), getProfileSections(ctx), getRoomInfo({ state, engine, fallbackName }) }`.
 - `modules.table` – Same shape as `modules.lobby`, used once the game is in progress.
 
+### Component Props
+
+`RoomPage` wraps engine-supplied components with a runtime guard that validates a minimal prop contract. Missing props will surface as console errors in development builds.
+
+| Component | Required props |
+| --- | --- |
+| Lobby | `players` (array), `hostId` (string), `userId` (string), `onStart`, `onReturnToWelcome`, `onBackToHub` (functions) |
+| Table | `players` (array), `userId` (string), `phase` (string), `hand` (array), `handLocked` (boolean), `onPlayCard` (function) |
+
+Additional props (room metadata, history, trick data, etc.) remain available for richer experiences, but engines should treat the table contract above as the baseline.
+
 If omitted, the hub falls back to shared components (`LobbyView`, shared menus, etc.). Any custom module should keep the contract for props consumed by `RoomPage` (e.g., lobby component should accept the same props as `LobbyView`).
 
 ## Adding A New Engine
