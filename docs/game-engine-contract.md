@@ -25,6 +25,7 @@ This project loads card-game engines through `createGameEngine` (`src/games/engi
 | `botThinkDelay` | `number` | Milliseconds to wait before bot actions. |
 | `getBotAction` | `(state, botPlayer) => action` | Provides automated moves when `botThinkDelay` elapses. |
 | `modules` | `EngineModules` | Optional per-engine UI modules overriding lobby/table menus, side panels, and room metadata. |
+| `customizationDefaults` | `Partial<CustomizationState>` | Optional baseline cosmetic selection applied when the engine activates. |
 
 ## Interaction Contract
 
@@ -39,6 +40,17 @@ This project loads card-game engines through `createGameEngine` (`src/games/engi
   - `handLocked` (boolean) – disables interaction when true
   - `onPlayCard(card)` – called from shared components when the player selects a card
   - `overlays` (React nodes) – injected above the table via `RoomPage`
+
+## Shared Engine Toolkit
+
+The `src/games/shared/` directory houses reusable helpers that engines should adopt instead of re-implementing boilerplate:
+
+- `lobbyUtils.js` – status cycling, lobby seat preparation, ID/room-code generation, bounded history logging, and player lookup.
+- `reducerFactory.js` – `createReducer(actionMap)` and `createInitialStateFactory(baseStateBuilder)` remove reducer/initial-state wiring duplication.
+- `botHandlers.js` – `createBotHandlers(config)` returns `addBot`, `removeBot`, and `autoReadyBots` with seat-limit and banner customisation.
+- `trickEngine/` – `createTrickEngine(config)` orchestrates trick play by combining validation, per-card effects, trick resolution, and round resolution callbacks.
+
+When extending the hub with a new engine, start with these helpers and add game-specific behaviour through the provided hooks.
 
 ## Module Contract
 
@@ -59,3 +71,12 @@ If omitted, the hub falls back to shared components (`LobbyView`, shared menus, 
 5. Verify the reducer with a minimal smoke test to guarantee core transitions (e.g., lobby -> playing -> finished).
 
 Keeping to this contract ensures the hub can swap engines without additional wiring or special-case logic.
+
+## Migration Checklist For Trick-Based Engines
+
+1. Use `createInitialStateFactory` with your `createBaseState` function so user overrides stay consistent across engines.
+2. Build reducers with `createReducer(actionMap)` to keep action dispatch uniform.
+3. Configure `createBotHandlers` with seat limits, banners, and history messaging, then re-export the generated handlers from your action directory.
+4. Wire `PLAY_CARD` handling through `createTrickEngine`, supplying callbacks for validation, per-card side effects, trick resolution, and round completion.
+5. Import lobby helpers (status sequencing, lobby preparation, IDs, history) from `lobbyUtils.js` instead of duplicating them.
+6. Extend your test suite to exercise custom trick callbacks and scoring so the shared pipeline remains verified.

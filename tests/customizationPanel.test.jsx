@@ -1,4 +1,5 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import React from 'react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import CustomizationPanel from '../src/components/CustomizationPanel.jsx';
 import { CustomizationProvider } from '../src/customization/CustomizationContext.jsx';
@@ -53,14 +54,37 @@ describe('CustomizationPanel', () => {
     restoreStorage?.();
   });
 
-  it('activates preset buttons', () => {
+  it('unlocks and activates preset buttons', async () => {
     renderPanel();
 
-    const auroraButton = screen.getByRole('button', { name: /Aurora Bloom/i });
+    const presetsSection = screen.getByRole('heading', { name: /Presets/i }).closest('section');
+    const presetWrapper = within(presetsSection).getAllByRole('button', { name: /Aurora Bloom/i })[0].parentElement;
+    const presetButton = within(presetWrapper).getByRole('button', { name: /Aurora Bloom/i });
 
-    fireEvent.click(auroraButton);
+    expect(presetButton.hasAttribute('disabled')).toBe(true);
 
-    expect(auroraButton).toHaveAttribute('data-active', 'true');
+    const unlockButton = within(presetWrapper).getAllByRole('button', { name: /Unlock/i })[0];
+
+    await fireEvent.click(unlockButton);
+
+    await waitFor(() => {
+      const buttons = within(presetsSection)
+        .getAllByRole('button', { name: /Aurora Bloom/i })
+        .filter((btn) => !btn.hasAttribute('disabled'));
+      expect(buttons.length).toBeGreaterThan(0);
+    });
+
+    const unlockedButton = within(presetsSection)
+      .getAllByRole('button', { name: /Aurora Bloom/i })
+      .find((btn) => !btn.hasAttribute('disabled'));
+
+    expect(unlockedButton).toBeTruthy();
+
+    fireEvent.click(unlockedButton);
+
+    await waitFor(() => {
+      expect(unlockedButton?.getAttribute('data-active')).toBe('true');
+    });
   });
 
   it('toggles accessibility options', () => {
@@ -70,6 +94,6 @@ describe('CustomizationPanel', () => {
 
     fireEvent.click(highContrast);
 
-    expect(highContrast).toHaveAttribute('data-active', 'true');
+    expect(highContrast.getAttribute('data-active')).toBe('true');
   });
 });

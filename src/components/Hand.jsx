@@ -2,12 +2,12 @@ import { useCustomizationTokens } from '../customization/CustomizationContext.js
 import Card from './Card.jsx';
 
 const Hand = ({ cards, onPlayCard, disabled = false }) => {
-  const { theme } = useCustomizationTokens();
+  const { theme, scaleFont } = useCustomizationTokens();
   const clickHandler = disabled ? undefined : onPlayCard;
 
   return (
     <div>
-      <h2 style={{ fontSize: '18px', marginBottom: '12px', color: theme.colors.textPrimary }}>Your Hand</h2>
+      <h2 style={{ fontSize: scaleFont('18px'), marginBottom: '12px', color: theme.colors.textPrimary }}>Your Hand</h2>
       <div
         style={{
           display: 'flex',
@@ -20,7 +20,7 @@ const Hand = ({ cards, onPlayCard, disabled = false }) => {
           <Card key={card.id} card={card} onClick={clickHandler} disabled={disabled} />
         ))}
         {cards.length === 0 && (
-          <div style={{ color: theme.colors.textMuted }}>Hand empty – draw from the deck.</div>
+          <div style={{ color: theme.colors.textMuted, fontSize: scaleFont('13px') }}>Hand empty – draw from the deck.</div>
         )}
       </div>
     </div>

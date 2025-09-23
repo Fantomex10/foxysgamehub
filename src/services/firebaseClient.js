@@ -82,3 +82,38 @@ export const recordMatchResult = async (uid, match) => {
     { merge: true },
   );
 };
+
+const customizationDocRef = (firestore, uid) => doc(
+  firestore,
+  'players',
+  uid,
+  'settings',
+  'customization',
+);
+
+export const fetchCustomizationConfig = async (uid) => {
+  if (!uid) return null;
+  const app = initFirebaseApp();
+  const firestore = getFirestore(app);
+  const customizationRef = customizationDocRef(firestore, uid);
+  const snapshot = await getDoc(customizationRef);
+  if (!snapshot.exists()) {
+    return null;
+  }
+  return snapshot.data();
+};
+
+export const upsertCustomizationConfig = async (uid, config) => {
+  if (!uid) return;
+  const app = initFirebaseApp();
+  const firestore = getFirestore(app);
+  const customizationRef = customizationDocRef(firestore, uid);
+  await setDoc(
+    customizationRef,
+    {
+      ...config,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+};

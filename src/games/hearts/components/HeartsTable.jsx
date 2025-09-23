@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import useMediaQuery from '../../../hooks/useMediaQuery.js';
-import { useTheme } from '../../../ui/ThemeContext.jsx';
+import { useCustomizationTokens } from '../../../customization/CustomizationContext.jsx';
 import Hand from '../../../components/Hand.jsx';
 import TableLayout from '../../../components/TableLayout.jsx';
 import { formatCard } from '../utils.js';
+import { withAlpha } from '../../../ui/colorUtils.js';
 
 const HeartsTable = ({
   roomId,
@@ -24,7 +25,11 @@ const HeartsTable = ({
   onPlayCard,
   onStartRound,
 }) => {
-  const { theme } = useTheme();
+  const {
+    theme,
+    pieces,
+    scaleFont,
+  } = useCustomizationTokens();
   const isCompact = useMediaQuery('(max-width: 900px)');
   const isExtraCompact = useMediaQuery('(max-width: 640px)');
 
@@ -46,41 +51,42 @@ const HeartsTable = ({
         : 'repeat(auto-fit, minmax(180px, 1fr))',
     gap: theme.spacing.sm,
     background: theme.table?.panel ?? theme.colors.surfaceAlt,
-    border: `1px solid ${theme.table?.border ?? theme.colors.border}`,
+    border: `1px solid ${theme.table?.border ?? pieces.secondary ?? theme.colors.border}`,
     borderRadius: theme.radii.lg,
     padding: isCompact ? '16px' : '20px',
     boxShadow: theme.shadows.panel,
-  }), [isCompact, isExtraCompact, theme]);
+  }), [isCompact, isExtraCompact, theme, pieces.secondary]);
 
   const trickStyle = useMemo(() => ({
     display: 'grid',
     gridTemplateColumns: isExtraCompact ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))',
     gap: theme.spacing.sm,
     background: theme.table?.panel ?? theme.colors.surfaceAlt,
-    border: `1px solid ${theme.table?.border ?? theme.colors.border}`,
+    border: `1px solid ${theme.table?.border ?? pieces.secondary ?? theme.colors.border}`,
     borderRadius: theme.radii.lg,
     padding: isCompact ? '16px' : '20px',
-  }), [isCompact, isExtraCompact, theme]);
+  }), [isCompact, isExtraCompact, theme, pieces.secondary]);
 
   const spectatorNoticeStyle = useMemo(() => ({
     padding: '12px 16px',
     borderRadius: theme.radii.sm,
-    border: `1px solid ${theme.colors.border}`,
-    background: theme.colors.surfaceMuted,
+    border: `1px solid ${pieces.primary ?? theme.colors.border}`,
+    background: withAlpha(pieces.secondary, 0.25) ?? theme.colors.surfaceMuted,
     color: theme.colors.textSecondary,
-    fontSize: '13px',
+    fontSize: scaleFont('13px'),
     textAlign: 'center',
-  }), [theme]);
+  }), [theme, pieces.primary, pieces.secondary, scaleFont]);
 
   const primaryButtonStyle = useMemo(() => ({
     padding: '10px 16px',
     borderRadius: theme.radii.sm,
     border: 'none',
-    background: theme.buttons.primaryBg,
+    background: pieces.primary ?? theme.buttons.primaryBg,
     color: theme.buttons.primaryText,
     fontWeight: 600,
+    fontSize: scaleFont('14px'),
     cursor: 'pointer',
-  }), [theme]);
+  }), [theme, pieces.primary, scaleFont]);
 
   const actionRowStyle = useMemo(() => ({
     display: 'flex',
@@ -89,17 +95,17 @@ const HeartsTable = ({
     gap: theme.spacing.md,
     flexDirection: isCompact ? 'column' : 'row',
     background: theme.colors.surfaceMuted,
-    border: `1px solid ${theme.colors.border}`,
+    border: `1px solid ${pieces.secondary ?? theme.colors.border}`,
     borderRadius: theme.radii.md,
     padding: '12px 16px',
     color: theme.colors.textPrimary,
-  }), [isCompact, theme]);
+  }), [isCompact, theme, pieces.secondary]);
 
   return (
     <TableLayout
       title={roomName ?? `Room ${roomId}`}
       subtitle={(
-        <span style={{ color: heartsBroken ? theme.colors.accentDanger : theme.colors.textMuted, fontSize: '13px' }}>
+        <span style={{ color: heartsBroken ? theme.colors.accentDanger : theme.colors.textMuted, fontSize: scaleFont('13px') }}>
           Hearts broken: {heartsBroken ? 'Yes' : 'No'}
         </span>
       )}
@@ -113,23 +119,23 @@ const HeartsTable = ({
             <div
               key={player.id}
               style={{
-                background: isCurrent ? theme.colors.surfaceAlt : theme.colors.surfaceMuted,
+                background: isCurrent ? withAlpha(pieces.primary, 0.3) ?? theme.colors.surfaceAlt : withAlpha(pieces.secondary, 0.2) ?? theme.colors.surfaceMuted,
                 borderRadius: theme.radii.md,
-                border: `1px solid ${isCurrent ? theme.colors.accentPrimary : theme.colors.borderSubtle}`,
+                border: `1px solid ${isCurrent ? pieces.primary ?? theme.colors.accentPrimary : pieces.secondary ?? theme.colors.borderSubtle}`,
                 padding: '12px',
                 color: theme.colors.textPrimary,
               }}
             >
-              <div style={{ fontWeight: 600 }}>{player.name}</div>
-              <div style={{ fontSize: '13px', color: theme.colors.textMuted }}>Total: {total}</div>
-              <div style={{ fontSize: '13px', color: theme.colors.textMuted }}>Round: {round}</div>
+              <div style={{ fontWeight: 600, fontSize: scaleFont('15px') }}>{player.name}</div>
+              <div style={{ fontSize: scaleFont('13px'), color: theme.colors.textMuted }}>Total: {total}</div>
+              <div style={{ fontSize: scaleFont('13px'), color: theme.colors.textMuted }}>Round: {round}</div>
             </div>
           );
         })}
       </section>
 
       <section>
-        <h3 style={{ margin: '0 0 12px', color: theme.colors.textPrimary }}>Current trick</h3>
+        <h3 style={{ margin: '0 0 12px', color: theme.colors.textPrimary, fontSize: scaleFont('16px') }}>Current trick</h3>
         <div style={trickStyle}>
           {(players ?? []).map((player) => {
             const card = trickByPlayer[player.id];
@@ -140,15 +146,15 @@ const HeartsTable = ({
                 style={{
                   background: theme.colors.surfaceMuted,
                   borderRadius: theme.radii.sm,
-                  border: `1px solid ${isCurrent ? theme.colors.accentPrimary : theme.colors.borderSubtle}`,
+                  border: `1px solid ${isCurrent ? pieces.primary ?? theme.colors.accentPrimary : theme.colors.borderSubtle}`,
                   padding: '12px',
                   color: theme.colors.textPrimary,
                   minHeight: '72px',
                   position: 'relative',
                 }}
               >
-                <div style={{ fontWeight: 600, marginBottom: '6px' }}>{player.name}</div>
-                <div style={{ color: theme.colors.textMuted, fontSize: '14px' }}>
+                <div style={{ fontWeight: 600, marginBottom: '6px', fontSize: scaleFont('14px') }}>{player.name}</div>
+                <div style={{ color: theme.colors.textMuted, fontSize: scaleFont('14px') }}>
                   {card ? formatCard(card) : '—'}
                 </div>
                 {isCurrent && (
@@ -157,8 +163,8 @@ const HeartsTable = ({
                       position: 'absolute',
                       top: '8px',
                       right: '12px',
-                      fontSize: '11px',
-                      color: theme.colors.accentPrimary,
+                      fontSize: scaleFont('11px'),
+                      color: pieces.primary ?? theme.colors.accentPrimary,
                     }}
                   >
                     Playing
@@ -172,7 +178,7 @@ const HeartsTable = ({
 
       {phase === 'finished' && (
         <div style={actionRowStyle}>
-          <span>{gameOver ? 'Match complete. Return to the lobby to start a new game.' : 'Round complete. Host may begin the next round.'}</span>
+          <span style={{ fontSize: scaleFont('14px') }}>{gameOver ? 'Match complete. Return to the lobby to start a new game.' : 'Round complete. Host may begin the next round.'}</span>
           {!gameOver && isHost && onStartRound && (
             <button
               type="button"
@@ -192,11 +198,11 @@ const HeartsTable = ({
           </div>
         ) : (
           <>
-            <h2 style={{ fontSize: '18px', marginBottom: '12px', color: theme.colors.textPrimary }}>
+            <h2 style={{ fontSize: scaleFont('18px'), marginBottom: '12px', color: theme.colors.textPrimary }}>
               {me ? `${me.name}'s hand` : 'Your hand'}
             </h2>
             <Hand cards={hand} onPlayCard={onPlayCard} disabled={handLocked} />
-            <div style={{ marginTop: '8px', fontSize: '12px', color: theme.colors.textMuted }}>
+            <div style={{ marginTop: '8px', fontSize: scaleFont('12px'), color: theme.colors.textMuted }}>
               {handLocked ? 'Waiting for your turn…' : 'Select a legal card to play.'}
             </div>
           </>

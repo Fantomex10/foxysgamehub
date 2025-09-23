@@ -1,8 +1,16 @@
 import { useMemo } from 'react';
-import { useTheme } from '../ui/ThemeContext.jsx';
+import { useCustomizationTokens } from '../customization/CustomizationContext.jsx';
 
 const JoinLobbyList = ({ lobbies, onJoin, onBack }) => {
-  const { theme } = useTheme();
+  const {
+    theme,
+    pieces,
+    scaleFont,
+    motionDuration,
+    accessibility,
+  } = useCustomizationTokens();
+
+  const transitionValue = accessibility?.reducedMotion ? 'none' : `transform ${motionDuration('0.2s')} ease, opacity ${motionDuration('0.2s')} ease`;
 
   const containerStyle = useMemo(() => ({
     maxWidth: '720px',
@@ -40,10 +48,12 @@ const JoinLobbyList = ({ lobbies, onJoin, onBack }) => {
     padding: '10px 16px',
     borderRadius: theme.radii.sm,
     border: 'none',
-    background: theme.buttons.primaryBg,
+    background: pieces.primary ?? theme.buttons.primaryBg,
     color: theme.buttons.primaryText,
     fontWeight: 600,
     cursor: 'pointer',
+    transition: transitionValue,
+    fontSize: scaleFont('14px'),
   };
 
   const tertiaryButton = {
@@ -54,20 +64,22 @@ const JoinLobbyList = ({ lobbies, onJoin, onBack }) => {
     color: theme.buttons.subtleText,
     fontWeight: 500,
     cursor: 'pointer',
+    transition: transitionValue,
+    fontSize: scaleFont('14px'),
   };
 
   return (
     <div style={containerStyle}>
       <header>
-        <h2 style={{ margin: 0, fontSize: '28px', color: theme.colors.textPrimary }}>Join Lobby</h2>
-        <p style={{ marginTop: '8px', color: theme.colors.textMuted, fontSize: '15px' }}>
+        <h2 style={{ margin: 0, fontSize: scaleFont('28px'), color: theme.colors.textPrimary }}>Join Lobby</h2>
+        <p style={{ marginTop: '8px', color: theme.colors.textMuted, fontSize: scaleFont('15px') }}>
           Active lobbies discovered locally. Networking integration will broaden this list later.
         </p>
       </header>
 
       <div style={listStyle}>
         {lobbies.length === 0 && (
-          <div style={{ color: theme.colors.textMuted, fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>
+          <div style={{ color: theme.colors.textMuted, fontSize: scaleFont('14px'), textAlign: 'center', padding: '24px 0' }}>
             No lobbies available yet. Create one or try again later.
           </div>
         )}
@@ -76,8 +88,8 @@ const JoinLobbyList = ({ lobbies, onJoin, onBack }) => {
           return (
             <div key={lobby.id} style={lobbyRowStyle}>
               <div>
-                <div style={{ fontWeight: 600 }}>{lobby.roomName}</div>
-                <div style={{ color: theme.colors.textMuted, fontSize: '13px' }}>
+                <div style={{ fontWeight: 600, fontSize: scaleFont('15px') }}>{lobby.roomName}</div>
+                <div style={{ color: theme.colors.textMuted, fontSize: scaleFont('13px') }}>
                   {lobby.engineName} · Host {lobby.hostName} · Players {lobby.playerCount}/{lobby.maxPlayers || '∞'}
                 </div>
               </div>

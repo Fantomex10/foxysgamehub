@@ -1,131 +1,14 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import AppShell from '../../components/AppShell.jsx';
+import { useCustomizationTokens } from '../../customization/CustomizationContext.jsx';
 import { useTheme } from '../../ui/ThemeContext.jsx';
 import { useAppState } from '../context/AppStateContext.jsx';
+import { getDefaultMenuSections, getDefaultProfileSections } from '../lib/menuDefaults.js';
+import { buildDeveloperMenu } from '../lib/developerControls.js';
+import { createActionButtonStyle } from '../../ui/stylePrimitives.js';
+import { withAlpha } from '../../ui/colorUtils.js';
+import { MenuSections, ProfileSections } from './AppLayoutPanels.jsx';
 
-const SectionHeading = ({ theme, title }) => (
-  <div>
-    <h2
-      style={{
-        margin: 0,
-        fontSize: '20px',
-        color: theme.colors.textPrimary,
-      }}
-    >
-      {title}
-    </h2>
-    <div
-      style={{
-        height: '1px',
-        background: `linear-gradient(to right, transparent, ${theme.colors.borderStrong}, transparent)`,
-      }}
-    />
-  </div>
-);
-
-const renderMenuSections = (theme, sections, createButtonStyle) => (
-  <nav style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-    {sections.map((section) => (
-      <div key={section.title} style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-        <SectionHeading theme={theme} title={section.title} />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-          {section.items.map((item) => {
-            const buttonStyle = createButtonStyle(item.tone);
-            return (
-              <button
-                key={item.label}
-                type="button"
-                onClick={item.onClick}
-                disabled={item.disabled}
-                style={{
-                  ...buttonStyle,
-                  opacity: item.disabled ? 0.45 : 1,
-                  cursor: item.disabled ? 'not-allowed' : 'pointer',
-                }}
-              >
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    ))}
-  </nav>
-);
-
-const renderProfileSections = (theme, sections) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-    <h2 style={{ margin: 0, fontSize: '20px', color: theme.colors.textPrimary }}>Player profile</h2>
-    <div
-      style={{
-        height: '1px',
-        background: `linear-gradient(to right, transparent, ${theme.colors.borderStrong}, transparent)`,
-      }}
-    />
-    {sections.map((entry) => {
-      if (entry.type === 'divider') {
-        return (
-          <div
-            key={entry.key ?? entry.label ?? Math.random()}
-            style={{
-              height: '1px',
-              background: `linear-gradient(to right, transparent, ${theme.colors.borderSoft}, transparent)`,
-            }}
-          />
-        );
-      }
-      if (entry.type === 'highlight') {
-        return (
-          <div key={entry.label}>
-            <p
-              style={{
-                margin: 0,
-                color: theme.colors.textMuted,
-                fontSize: '12px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.08em',
-              }}
-            >
-              {entry.label}
-            </p>
-            <p
-              style={{
-                margin: '4px 0 0',
-                color: theme.colors.textPrimary,
-                fontSize: '18px',
-                fontWeight: 700,
-              }}
-            >
-              {entry.value}
-            </p>
-          </div>
-        );
-      }
-      return (
-        <div key={entry.label}>
-          <p
-            style={{
-              margin: 0,
-              color: theme.colors.textMuted,
-              fontSize: '13px',
-            }}
-          >
-            {entry.label}
-          </p>
-          <p
-            style={{
-              margin: '4px 0 0',
-              color: theme.colors.textSecondary,
-              fontWeight: 600,
-            }}
-          >
-            {entry.value}
-          </p>
-        </div>
-      );
-    })}
-  </div>
-);
 
 export const AppLayout = ({
   children,
@@ -150,101 +33,51 @@ export const AppLayout = ({
     availableSessionAdapters,
     availablePhotonAdapters,
     updateServiceConfig,
+    photonStatus,
   } = useAppState();
-  const { theme, availableThemes, themeId, setThemeId } = useTheme();
+  const {
+    theme,
+    pieces,
+    scaleFont,
+    motionDuration,
+    accessibility,
+  } = useCustomizationTokens();
+  const { availableThemes, themeId, setThemeId } = useTheme();
 
   const defaultMenuSections = useMemo(
-    () => [
-      {
-        title: 'Game menu',
-        items: [
-          { label: 'Game options', onClick: () => {}, tone: 'ghost' },
-          { label: 'Settings', onClick: () => {}, tone: 'ghost' },
-          { label: 'Support', onClick: () => {}, tone: 'ghost' },
-        ],
-      },
-    ],
+    () => getDefaultMenuSections(),
     [],
   );
 
   const defaultProfileSections = useMemo(
-    () => [
-      { type: 'highlight', label: 'Lobby', value: gameDisplayName },
-      { label: 'Room code', value: state.roomId ?? '—' },
-      { label: 'Display name', value: playerDisplayName },
-      { label: 'Balance', value: '—' },
-      { label: 'Local time', value: '--:--' },
-      { type: 'divider', key: 'divider-1' },
-      { label: 'Stats', value: 'Coming soon' },
-      { label: 'Unlocked items', value: 'No items unlocked yet.' },
-      { label: 'Friends', value: 'Invite friends to share the table.' },
-    ],
+    () => getDefaultProfileSections({
+      gameDisplayName,
+      playerDisplayName,
+      roomId: state.roomId,
+    }),
     [gameDisplayName, playerDisplayName, state.roomId],
   );
 
-  const developerMenuSection = useMemo(() => {
-    if (!serviceConfig) {
-      return null;
-    }
-
-    const cycleOption = (options, current) => {
-      if (!Array.isArray(options) || options.length === 0) {
-        return current;
-      }
-      const index = options.indexOf(current);
-      if (index === -1) {
-        return options[0];
-      }
-      return options[(index + 1) % options.length];
-    };
-
-    const sessionOptions = availableSessionAdapters ?? [];
-    const photonOptions = availablePhotonAdapters ?? [];
-    const themeOptions = availableThemes ?? [];
-    const currentTheme = themeOptions.find((entry) => entry.id === themeId) ?? themeOptions[0];
-
-    const items = [
-      {
-        label: `Session adapter: ${serviceConfig.sessionAdapter}`,
-        onClick: () => updateServiceConfig((current) => ({
-          ...current,
-          sessionAdapter: cycleOption(sessionOptions, current.sessionAdapter),
-        })),
-        disabled: sessionOptions.length <= 1,
-      },
-      {
-        label: `Photon adapter: ${serviceConfig.photonAdapter}`,
-        onClick: () => updateServiceConfig((current) => ({
-          ...current,
-          photonAdapter: cycleOption(photonOptions, current.photonAdapter),
-        })),
-        disabled: photonOptions.length <= 1,
-      },
-      {
-        label: `Theme: ${currentTheme?.name ?? themeId}`,
-        onClick: () => {
-          if (!themeOptions.length) return;
-          const ids = themeOptions.map((entry) => entry.id);
-          const nextId = cycleOption(ids, themeId);
-          setThemeId(nextId);
-        },
-        disabled: themeOptions.length <= 1,
-      },
-    ];
-
-    return {
-      title: 'Developer toggles',
-      items,
-    };
-  }, [
-    serviceConfig,
-    availableSessionAdapters,
-    availablePhotonAdapters,
-    availableThemes,
-    themeId,
-    setThemeId,
-    updateServiceConfig,
-  ]);
+  const developerMenuSection = useMemo(
+    () => buildDeveloperMenu({
+      serviceConfig,
+      sessionAdapters: availableSessionAdapters,
+      photonAdapters: availablePhotonAdapters,
+      availableThemes,
+      themeId,
+      setThemeId,
+      updateServiceConfig,
+    }),
+    [
+      serviceConfig,
+      availableSessionAdapters,
+      availablePhotonAdapters,
+      availableThemes,
+      themeId,
+      setThemeId,
+      updateServiceConfig,
+    ],
+  );
 
   const finalMenuSections = useMemo(() => {
     const sections = menuSections ?? defaultMenuSections;
@@ -256,70 +89,116 @@ export const AppLayout = ({
 
   const finalProfileSections = profileSections ?? defaultProfileSections;
 
-  const createButtonStyle = (tone = 'default') => {
-    if (tone === 'primary') {
-      return {
-        padding: '12px 14px',
-        borderRadius: theme.radii.sm,
-        border: `1px solid ${theme.buttons.primaryBorder}`,
-        background: theme.buttons.primaryBg,
-        color: theme.buttons.primaryText,
-        fontSize: '14px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        transition: 'background 0.2s ease, transform 0.2s ease',
-      };
-    }
-    if (tone === 'danger') {
-      return {
-        padding: '12px 14px',
-        borderRadius: theme.radii.sm,
-        border: `1px solid ${theme.buttons.dangerBorder}`,
-        background: theme.buttons.dangerBg,
-        color: theme.buttons.dangerText,
-        fontSize: '14px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        transition: 'background 0.2s ease, transform 0.2s ease',
-      };
-    }
-    if (tone === 'ghost') {
-      return {
-        padding: '12px 14px',
-        borderRadius: theme.radii.sm,
-        border: `1px solid ${theme.buttons.subtleBorder}`,
-        background: theme.buttons.ghostBg,
-        color: theme.buttons.ghostText,
-        fontSize: '14px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        transition: 'background 0.2s ease, transform 0.2s ease',
-      };
-    }
-    return {
-      padding: '12px 14px',
-      borderRadius: theme.radii.sm,
-      border: `1px solid ${theme.buttons.subtleBorder}`,
-      background: theme.buttons.subtleBg,
-      color: theme.buttons.subtleText,
-      fontSize: '14px',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      transition: 'background 0.2s ease, transform 0.2s ease',
-    };
-  };
+  const buttonTokens = useMemo(
+    () => ({
+      theme,
+      pieces,
+      scaleFont,
+      motionDuration,
+      accessibility,
+    }),
+    [theme, pieces, scaleFont, motionDuration, accessibility],
+  );
+
+  const getMenuButtonStyle = useCallback(
+    (tone = 'default') => createActionButtonStyle(buttonTokens, tone),
+    [buttonTokens],
+  );
 
   const leftPanelNode = finalMenuSections && finalMenuSections.length > 0
-    ? renderMenuSections(theme, finalMenuSections, createButtonStyle)
+    ? (
+      <MenuSections
+        theme={theme}
+        sections={finalMenuSections}
+        getButtonStyle={getMenuButtonStyle}
+        scaleFont={scaleFont}
+      />
+    )
     : null;
 
   const rightPanelNode = finalProfileSections && finalProfileSections.length > 0
-    ? renderProfileSections(theme, finalProfileSections)
+    ? (
+      <ProfileSections
+        theme={theme}
+        sections={finalProfileSections}
+        scaleFont={scaleFont}
+      />
+    )
     : null;
+
+  const connectionBanner = useMemo(() => {
+    if (serviceConfig?.photonAdapter !== 'realtime') {
+      return null;
+    }
+
+    const status = photonStatus?.status ?? 'idle';
+    if (status === 'connected') {
+      return null;
+    }
+
+    const errorMessage = photonStatus?.error?.message ?? photonStatus?.error?.toString?.() ?? '';
+
+    let tone = 'info';
+    let message = 'Realtime service initialising…';
+    if (status === 'connecting') {
+      message = 'Connecting to realtime service…';
+    } else if (status === 'disconnected') {
+      tone = 'warning';
+      message = 'Realtime connection lost. Attempting to reconnect…';
+    } else if (status === 'error') {
+      tone = 'danger';
+      message = errorMessage ? `Realtime error: ${errorMessage}` : 'Realtime connection encountered an error.';
+    } else if (status === 'idle') {
+      message = 'Realtime service waiting for a session…';
+    }
+
+    const palette = {
+      info: {
+        background: withAlpha(theme.colors?.accentPrimary ?? '#38bdf8', 0.18, theme.colors?.surfaceMuted),
+        border: theme.colors?.accentPrimary ?? pieces.primary ?? theme.colors?.border,
+        text: theme.colors?.accentPrimary ?? theme.colors?.textSecondary,
+      },
+      warning: {
+        background: withAlpha(theme.colors?.accentWarning ?? '#fbbf24', 0.2, theme.colors?.surfaceMuted),
+        border: theme.colors?.accentWarning ?? theme.colors?.border,
+        text: theme.colors?.accentWarning ?? theme.colors?.textSecondary,
+      },
+      danger: {
+        background: withAlpha(theme.colors?.accentDanger ?? '#f87171', 0.2, theme.colors?.surfaceMuted),
+        border: theme.colors?.accentDanger ?? theme.colors?.border,
+        text: theme.colors?.accentDanger ?? theme.colors?.textSecondary,
+      },
+    }[tone];
+
+    const bannerStyle = {
+      width: '100%',
+      boxSizing: 'border-box',
+      display: 'flex',
+      alignItems: 'center',
+      gap: theme.spacing?.sm ?? '8px',
+      padding: '12px 16px',
+      borderRadius: theme.radii?.sm ?? theme.radii?.md ?? '12px',
+      border: `1px solid ${palette.border}`,
+      background: palette.background,
+      color: palette.text,
+      fontSize: scaleFont('13px'),
+      marginBottom: theme.spacing?.sm ?? '12px',
+    };
+
+    const labelStyle = {
+      fontSize: scaleFont('12px'),
+      fontWeight: 700,
+      letterSpacing: '0.08em',
+      textTransform: 'uppercase',
+    };
+
+    return (
+      <div style={bannerStyle}>
+        <span style={labelStyle}>Realtime</span>
+        <span style={{ flex: 1 }}>{message}</span>
+      </div>
+    );
+  }, [photonStatus, scaleFont, serviceConfig?.photonAdapter, theme, pieces]);
 
   if (!useShell) {
     return children;
@@ -339,6 +218,7 @@ export const AppLayout = ({
       forceMenuButton={forceMenuButton}
       forceProfileButton={forceProfileButton}
       menuButtonVariant={menuButtonVariant}
+      statusBanner={connectionBanner}
     >
       {children}
     </AppShell>

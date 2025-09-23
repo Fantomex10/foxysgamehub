@@ -1,6 +1,51 @@
-export { CustomizationProvider, useCustomization, useCustomizationTokens } from './CustomizationContext.jsx';
-export { cardSkins, listCardSkins, getCardSkinById, defaultCardSkinId } from './skins/cards.js';
-export { tableSkins, listTableSkins, getTableSkinById, defaultTableSkinId } from './skins/table.js';
-export { pieceSkins, listPieceSkins, getPieceSkinById, defaultPieceSkinId } from './skins/pieces.js';
-export { backdrops, listBackdrops, getBackdropById, defaultBackdropId } from './backdrops.js';
-export { presets, listPresets, getPresetById, defaultPresetId } from './presets.js';
+export {
+  CustomizationProvider,
+  useCustomization,
+  useCustomizationTokens,
+} from './CustomizationContext.jsx';
+
+export {
+  registerCardSkin,
+  unregisterCardSkin,
+  listCardSkins,
+  getCardSkinById,
+  getDefaultCardSkinId,
+} from './skins/cards.js';
+
+export {
+  registerTableSkin,
+  unregisterTableSkin,
+  listTableSkins,
+  getTableSkinById,
+  getDefaultTableSkinId,
+} from './skins/table.js';
+
+export {
+  registerPieceSkin,
+  unregisterPieceSkin,
+  listPieceSkins,
+  getPieceSkinById,
+  getDefaultPieceSkinId,
+} from './skins/pieces.js';
+
+export {
+  registerBackdrop,
+  unregisterBackdrop,
+  listBackdrops,
+  getBackdropById,
+  getDefaultBackdropId,
+} from './backdrops.js';
+
+export {
+  registerPreset,
+  unregisterPreset,
+  listPresets,
+  getPresetById,
+  getDefaultPresetId,
+} from './presets.js';
+
+export {
+  registerCustomizationCategory,
+  unregisterCustomizationCategory,
+  listCustomizationCategories,
+} from './categoriesRegistry.js';

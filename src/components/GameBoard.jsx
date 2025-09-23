@@ -1,9 +1,12 @@
+import { useMemo } from 'react';
 import useMediaQuery from '../hooks/useMediaQuery.js';
 import { useCustomizationTokens } from '../customization/CustomizationContext.jsx';
 import DrawPile from './DrawPile.jsx';
 import DiscardPile from './DiscardPile.jsx';
 import Hand from './Hand.jsx';
 import TableLayout from './TableLayout.jsx';
+import { createPanelContainerStyle } from '../ui/stylePrimitives.js';
+import { withAlpha } from '../ui/colorUtils.js';
 
 const prettySuit = (suit) => (suit ? suit.charAt(0).toUpperCase() + suit.slice(1) : '—');
 
@@ -23,7 +26,12 @@ const GameBoard = ({
   onPlayCard,
   onDrawCard,
 }) => {
-  const { theme, table } = useCustomizationTokens();
+  const {
+    theme,
+    table,
+    pieces,
+    scaleFont,
+  } = useCustomizationTokens();
   const isCompact = useMediaQuery('(max-width: 900px)');
   const isSpectator = !(Array.isArray(players) && players.some((player) => player.id === userId));
   const isMyTurn = !isSpectator && currentTurn === userId && phase === 'playing';
@@ -41,54 +49,54 @@ const GameBoard = ({
         alignItems: 'flex-start',
       };
 
-  const panelStyle = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-    background: table.panel ?? theme.colors.surfaceMuted,
-    border: `1px solid ${table.border ?? theme.colors.borderFaint}`,
-    borderRadius: theme.radii.md,
-    padding: '18px',
-    minWidth: isCompact ? '0' : '200px',
-    color: table.text ?? theme.colors.textPrimary,
-  };
+  const panelStyle = useMemo(
+    () => createPanelContainerStyle(
+      { theme, pieces },
+      {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: theme.spacing?.sm ?? '12px',
+        background: table.panel ?? theme.colors.surfaceMuted,
+        border: `1px solid ${table.border ?? pieces.secondary ?? theme.colors.borderFaint}`,
+        borderRadius: theme.radii.md,
+        padding: '18px',
+        minWidth: isCompact ? '0' : '200px',
+        color: table.text ?? theme.colors.textPrimary,
+      },
+    ),
+    [theme, table, pieces, isCompact],
+  );
 
   const playerRowStyle = (active, isSelf) => {
-    const highlightColor = table.highlight;
-    let activeFill = theme.colors.accentPrimarySoft;
-    if (typeof highlightColor === 'string') {
-      if (highlightColor.startsWith('#') && highlightColor.length === 7) {
-        activeFill = `${highlightColor}33`;
-      } else {
-        activeFill = highlightColor;
-      }
-    }
+    const activeBorder = pieces.highlight ?? pieces.primary ?? theme.colors.accentPrimary;
+    const inactiveBg = withAlpha(pieces.secondary, 0.18) ?? 'rgba(148,163,184,0.08)';
+    const activeBg = withAlpha(pieces.primary, 0.35) ?? theme.colors.accentPrimarySoft;
     return {
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
       padding: '10px 12px',
       borderRadius: theme.radii.sm,
-      background: active ? activeFill : 'rgba(148,163,184,0.08)',
-      border: `1px solid ${isSelf ? theme.colors.accentPrimary : 'transparent'}`,
+      background: active ? activeBg : inactiveBg,
+      border: `1px solid ${isSelf ? activeBorder : 'transparent'}`,
       color: theme.colors.textPrimary,
-      fontSize: '14px',
+      fontSize: scaleFont('14px'),
     };
   };
 
   const summaryBlockStyle = {
     textAlign: isCompact ? 'left' : 'center',
     color: theme.colors.textMuted,
-    fontSize: '13px',
+    fontSize: scaleFont('13px'),
   };
 
   const spectatorNoticeStyle = {
     padding: '12px 16px',
     borderRadius: theme.radii.sm,
-    border: `1px solid ${theme.colors.border}`,
-    background: theme.colors.surfaceMuted,
+    border: `1px solid ${pieces.primary ?? theme.colors.border}`,
+    background: withAlpha(pieces.secondary, 0.25) ?? theme.colors.surfaceMuted,
     color: theme.colors.textSecondary,
-    fontSize: '13px',
+    fontSize: scaleFont('13px'),
     textAlign: 'center',
   };
 
@@ -96,24 +104,30 @@ const GameBoard = ({
     <TableLayout title={roomName ?? `Room ${roomId}`}>
       <section style={containerStyle}>
         <div style={{ ...panelStyle, width: isCompact ? '100%' : 'auto' }}>
-          <h3 style={{ margin: 0, fontSize: '16px', color: theme.colors.textPrimary }}>Turn order</h3>
-          {players.map((player) => (
-            <div
-              key={player.id}
-              style={playerRowStyle(currentTurn === player.id, player.id === userId)}
-            >
-              <span>{player.name}</span>
-              <span
-                style={{
-                  color: currentTurn === player.id ? theme.colors.accentPrimary : theme.colors.textMuted,
-                }}
+          <h3 style={{ margin: 0, fontSize: scaleFont('16px'), color: theme.colors.textPrimary }}>Turn order</h3>
+          {players.map((player) => {
+            const isActive = currentTurn === player.id;
+            return (
+              <div
+                key={player.id}
+                style={playerRowStyle(isActive, player.id === userId)}
               >
-                {currentTurn === player.id ? 'Playing' : player.isBot ? 'Bot' : 'Waiting'}
-              </span>
-            </div>
-          ))}
+                <span>{player.name}</span>
+                <span
+                  style={{
+                    color: isActive
+                      ? pieces.highlight ?? theme.colors.accentPrimary
+                      : theme.colors.textMuted,
+                    fontSize: scaleFont('13px'),
+                  }}
+                >
+                  {isActive ? 'Playing' : player.isBot ? 'Bot' : 'Waiting'}
+                </span>
+              </div>
+            );
+          })}
           {phase === 'finished' && (
-            <div style={{ marginTop: '12px', fontSize: '13px', color: theme.colors.accentSuccess }}>
+            <div style={{ marginTop: '12px', fontSize: scaleFont('13px'), color: theme.colors.accentSuccess }}>
               Round complete.
             </div>
           )}
@@ -148,7 +162,7 @@ const GameBoard = ({
         </div>
 
         <div style={{ ...panelStyle, width: isCompact ? '100%' : 'auto' }}>
-          <h3 style={{ margin: 0, fontSize: '16px', color: theme.colors.textPrimary }}>Recent actions</h3>
+          <h3 style={{ margin: 0, fontSize: scaleFont('16px'), color: theme.colors.textPrimary }}>Recent actions</h3>
           <ul
             style={{
               listStyle: 'none',
@@ -157,7 +171,7 @@ const GameBoard = ({
               display: 'flex',
               flexDirection: 'column',
               gap: '6px',
-              fontSize: '13px',
+              fontSize: scaleFont('13px'),
               color: theme.colors.textMuted,
             }}
           >
@@ -177,7 +191,7 @@ const GameBoard = ({
           <div
             style={{
               marginTop: '8px',
-              fontSize: '12px',
+              fontSize: scaleFont('12px'),
               color: theme.colors.textMuted,
             }}
           >
@@ -192,10 +206,11 @@ const GameBoard = ({
             marginTop: '12px',
             padding: '12px 16px',
             borderRadius: theme.radii.sm,
-            background: theme.colors.accentSuccessSoft,
-            border: `1px solid ${theme.colors.accentSuccess}`,
+            background: withAlpha(pieces.primary, 0.25) ?? theme.colors.accentSuccessSoft,
+            border: `1px solid ${pieces.primary ?? theme.colors.accentSuccess}`,
             color: theme.colors.textPrimary,
             textAlign: 'center',
+            fontSize: scaleFont('13px'),
           }}
         >
           Round finished. Return to the lobby to redeal.

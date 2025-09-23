@@ -16,9 +16,6 @@ const isTwoOfClubs = (card) => card.rank === '2' && card.suit === 'clubs';
 const isQueenOfSpades = (card) => card.rank === 'Q' && card.suit === 'spades';
 const isHeart = (card) => card.suit === 'hearts';
 
-const hasSuit = (hand, suit) => hand.some((card) => card.suit === suit);
-const hasOnlyHearts = (hand) => hand.every((card) => isHeart(card));
-
 export const getLegalMoves = (state, playerId) => {
   const hand = [...(state.hands[playerId] ?? [])];
   if (hand.length === 0) {

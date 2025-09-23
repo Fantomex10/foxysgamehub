@@ -1,5 +1,8 @@
+import { useMemo } from 'react';
 import { AppLayout } from '../components/AppLayout.jsx';
 import { useAppState } from '../context/AppStateContext.jsx';
+import { useCustomizationTokens } from '../../customization/CustomizationContext.jsx';
+import { createStatusMessageStyle } from '../../ui/stylePrimitives.js';
 
 export const RoomPage = () => {
   const {
@@ -17,6 +20,16 @@ export const RoomPage = () => {
     TableComponent,
     engineModules,
   } = useAppState();
+  const { theme, scaleFont } = useCustomizationTokens();
+  const statusPadding = `${theme.spacing?.xxl ?? '48px'} ${theme.spacing?.xl ?? '24px'}`;
+  const pendingStatusStyle = useMemo(
+    () => createStatusMessageStyle({ theme, scaleFont }, { padding: statusPadding }),
+    [theme, scaleFont, statusPadding],
+  );
+  const dangerStatusStyle = useMemo(
+    () => createStatusMessageStyle({ theme, scaleFont }, { tone: 'danger', padding: theme.spacing?.xxl ?? '48px' }),
+    [theme, scaleFont],
+  );
 
   if (state.phase === 'idle') {
     return (
@@ -25,7 +38,7 @@ export const RoomPage = () => {
         hideMenuToggle
         hideProfileToggle
       >
-        <div style={{ padding: '48px 24px', color: '#94a3b8', textAlign: 'center' }}>
+        <div style={pendingStatusStyle}>
           Preparing lobby…
         </div>
       </AppLayout>
@@ -143,7 +156,7 @@ export const RoomPage = () => {
             onStartRound={roomActions.startGame}
           />
         ) : (
-          <div style={{ color: '#f87171', textAlign: 'center', padding: '48px' }}>
+          <div style={dangerStatusStyle}>
             Engine "{engine.name}" is missing a Table component.
           </div>
         )}

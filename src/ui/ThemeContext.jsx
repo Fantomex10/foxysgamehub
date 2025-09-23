@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { defaultTheme, defaultThemeId, getThemeById, listThemes } from './theme.js';
 
 const STORAGE_KEY = 'fgb.theme';

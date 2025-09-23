@@ -1,8 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useTheme } from '../ui/ThemeContext.jsx';
+import { useCustomizationTokens } from '../customization/CustomizationContext.jsx';
+import { NumericStepper } from './createLobby/NumericStepper.jsx';
+import { VisibilityToggle } from './createLobby/VisibilityToggle.jsx';
+import { OverlayModal } from './createLobby/OverlayModal.jsx';
 
 const CreateLobbyForm = ({ engines, defaultEngineId, onCancel, onCreate }) => {
-  const { theme } = useTheme();
+  const {
+    theme,
+    pieces,
+    scaleFont,
+    motionDuration,
+    accessibility,
+  } = useCustomizationTokens();
   const [roomName, setRoomName] = useState('Friendly Match');
   const [engineId, setEngineId] = useState(defaultEngineId);
   const [maxPlayers, setMaxPlayers] = useState(4);
@@ -110,21 +119,12 @@ const CreateLobbyForm = ({ engines, defaultEngineId, onCancel, onCreate }) => {
     position: 'relative',
   }), [theme]);
 
-  const rowStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: '6px',
-    color: theme.colors.textSecondary,
-    fontSize: '15px',
-  };
-
   const labelStyle = {
     minWidth: '100px',
     color: theme.colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: '0.06em',
-    fontSize: '11px',
+    fontSize: scaleFont('11px'),
   };
 
   const inputStyle = {
@@ -134,46 +134,31 @@ const CreateLobbyForm = ({ engines, defaultEngineId, onCancel, onCreate }) => {
     border: `1px solid ${theme.colors.border}`,
     background: theme.colors.surfaceMuted,
     color: theme.colors.textPrimary,
-    fontSize: '15px',
+    fontSize: scaleFont('15px'),
   };
+
+  const chevronColor = theme.colors.textMuted;
 
   const selectStyle = {
     ...inputStyle,
     appearance: 'none',
-    backgroundImage: `linear-gradient(45deg, transparent 50%, ${theme.colors.textMuted} 50%), linear-gradient(135deg, ${theme.colors.textMuted} 50%, transparent 50%)`,
+    backgroundImage: `linear-gradient(45deg, transparent 50%, ${chevronColor} 50%), linear-gradient(135deg, ${chevronColor} 50%, transparent 50%)`,
     backgroundPosition: 'calc(100% - 18px) calc(50% - 5px), calc(100% - 13px) calc(50% - 5px)',
     backgroundSize: '6px 6px',
     backgroundRepeat: 'no-repeat',
   };
 
-  const stepperButtonStyle = {
-    width: '32px',
-    height: '32px',
-    borderRadius: theme.radii.sm,
-    border: `1px solid ${theme.colors.border}`,
-    background: theme.colors.surfaceMuted,
-    color: theme.colors.textPrimary,
-    fontSize: '18px',
-    fontWeight: 600,
-    cursor: 'pointer',
-  };
-
-  const stepperValueStyle = {
-    minWidth: '32px',
-    textAlign: 'center',
-    color: theme.colors.textPrimary,
-    fontSize: '15px',
-    fontWeight: 600,
-  };
+  const transitionValue = accessibility?.reducedMotion ? 'none' : `background ${motionDuration('200ms')} ease, transform ${motionDuration('200ms')} ease`;
 
   const primaryButton = {
     padding: '10px 16px',
     borderRadius: theme.radii.sm,
     border: 'none',
-    background: theme.buttons.primaryBg,
+    background: pieces.primary ?? theme.buttons.primaryBg,
     color: theme.buttons.primaryText,
     fontWeight: 600,
     cursor: 'pointer',
+    transition: transitionValue,
   };
 
   const tertiaryButton = {
@@ -184,277 +169,142 @@ const CreateLobbyForm = ({ engines, defaultEngineId, onCancel, onCreate }) => {
     color: theme.buttons.subtleText,
     fontWeight: 500,
     cursor: 'pointer',
-  };
-
-  const toggleButtonStyle = (active) => ({
-    padding: '8px 12px',
-    borderRadius: '999px',
-    border: `1px solid ${active ? theme.buttons.primaryBorder ?? theme.colors.accentPrimary : theme.buttons.subtleBorder}`,
-    background: active ? theme.buttons.primaryBg : theme.buttons.ghostBg,
-    color: active ? theme.buttons.primaryText : theme.buttons.ghostText ?? theme.colors.textSecondary,
-    fontSize: '14px',
-    fontWeight: 600,
-    cursor: 'pointer',
-    minWidth: '72px',
-  });
-
-  const optionsButtonStyle = {
-    padding: '9px 14px',
-    borderRadius: theme.radii.sm,
-    border: `1px solid ${theme.buttons.subtleBorder}`,
-    background: theme.buttons.ghostBg,
-    color: theme.colors.textSecondary,
-    fontWeight: 600,
-    cursor: 'pointer',
-    fontSize: '14px',
-    alignSelf: 'flex-start',
-  };
-
-  const modalBackdropStyle = {
-    position: 'absolute',
-    inset: 0,
-    background: theme.overlays.scrim,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '24px',
-    borderRadius: theme.radii.lg,
-    zIndex: 2,
-  };
-
-  const modalStyle = {
-    width: '100%',
-    maxWidth: '360px',
-    background: theme.colors.surfaceElevated ?? theme.colors.surface,
-    border: `1px solid ${theme.colors.borderSubtle}`,
-    borderRadius: theme.radii.md,
-    padding: '18px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px',
-    color: theme.colors.textPrimary,
+    transition: transitionValue,
   };
 
   return (
     <div style={containerStyle}>
-      <div style={rowStyle}>
-        <span style={labelStyle}>Lobby name</span>
-        <input
-          value={roomName}
-          onChange={(event) => setRoomName(event.target.value)}
-          placeholder="Foxy Friday Night"
-          style={inputStyle}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: theme.spacing.sm }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'flex-start' }}>
+          <label style={{ ...labelStyle, fontSize: scaleFont('12px') }}>Room name</label>
+          <input
+            value={roomName}
+            onChange={(event) => setRoomName(event.target.value)}
+            placeholder="Friendly Match"
+            style={{ ...inputStyle, width: '260px' }}
+          />
+        </div>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button type="button" style={tertiaryButton} onClick={() => setShowOptionsModal(true)}>
+            Advanced options
+          </button>
+          <button type="button" style={primaryButton} onClick={handleSubmit} disabled={!canSubmit}>
+            Create lobby
+          </button>
+          <button type="button" style={tertiaryButton} onClick={onCancel}>
+            Cancel
+          </button>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gap: theme.spacing.sm, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <label style={labelStyle}>Game</label>
+          <select value={engineId} onChange={(event) => setEngineId(event.target.value)} style={selectStyle}>
+            {engines.map((engine) => (
+              <option key={engine.id} value={engine.id}>
+                {engine.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <NumericStepper
+          label="Max players"
+          value={maxPlayers}
+          displayValue={requiredPlayers ?? maxPlayers}
+          min={requiredPlayers ?? minPlayers}
+          max={requiredPlayers ?? maxPlayersCap}
+          onChange={(next) => setMaxPlayers(next)}
+          decreaseLabel="Decrease player count"
+          increaseLabel="Increase player count"
         />
+
+        <NumericStepper
+          label="Bots"
+          value={botCount}
+          min={minBots}
+          max={maxBotsForPlayers}
+          onChange={(next) => setBotCount(next)}
+          decreaseLabel="Decrease bot count"
+          increaseLabel="Increase bot count"
+        />
+
+        <VisibilityToggle value={isPrivate} onChange={setIsPrivate} />
       </div>
 
-      <div style={rowStyle}>
-        <span style={labelStyle}>Game</span>
-        <select
-          value={engineId}
-          onChange={(event) => setEngineId(event.target.value)}
-          style={selectStyle}
-        >
-          {engines.map((engine) => (
-            <option key={engine.id} value={engine.id}>
-              {engine.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div style={rowStyle}>
-        <span style={labelStyle}>Visibility</span>
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <button
-            type="button"
-            style={toggleButtonStyle(!isPrivate)}
-            onClick={() => setIsPrivate(false)}
-          >
-            Public
+      {isPrivate && (
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <label style={{ ...labelStyle, flex: '0 0 120px' }}>Password</label>
+          <input
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Secret code"
+            style={{ ...inputStyle, flex: 1 }}
+          />
+          <button type="button" style={primaryButton} onClick={() => setShowPasswordModal(true)}>
+            Set password
           </button>
-          <button
-            type="button"
-            style={toggleButtonStyle(isPrivate)}
-            onClick={() => setIsPrivate(true)}
-          >
-            Private
-          </button>
-        </div>
-      </div>
-
-      <div style={rowStyle}>
-        <span style={labelStyle}>Max players</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <button
-            type="button"
-            onClick={() => setMaxPlayers((value) => Math.max(minPlayers, Number(value) - 1))}
-            style={{
-              ...stepperButtonStyle,
-              opacity: maxPlayers <= minPlayers ? 0.4 : 1,
-              cursor: maxPlayers <= minPlayers ? 'not-allowed' : 'pointer',
-            }}
-            disabled={Boolean(requiredPlayers) || maxPlayers <= minPlayers}
-            aria-label="Decrease max players"
-          >
-            −
-          </button>
-          <span style={stepperValueStyle}>{requiredPlayers ?? maxPlayers}</span>
-          <button
-            type="button"
-            onClick={() => setMaxPlayers((value) => Math.min(maxPlayersCap, Number(value) + 1))}
-            style={{
-              ...stepperButtonStyle,
-              opacity: requiredPlayers ? 0.35 : maxPlayers >= maxPlayersCap ? 0.4 : 1,
-              cursor: requiredPlayers || maxPlayers >= maxPlayersCap ? 'not-allowed' : 'pointer',
-            }}
-            disabled={Boolean(requiredPlayers) || maxPlayers >= maxPlayersCap}
-            aria-label="Increase max players"
-          >
-            +
-          </button>
-        </div>
-      </div>
-
-      <div style={rowStyle}>
-        <span style={labelStyle}>Bots</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <button
-            type="button"
-            onClick={() => setBotCount((value) => Math.max(minBots, Number(value) - 1))}
-            style={{
-              ...stepperButtonStyle,
-              opacity: botCount <= minBots ? 0.4 : 1,
-              cursor: botCount <= minBots ? 'not-allowed' : 'pointer',
-            }}
-            disabled={botCount <= minBots}
-            aria-label="Decrease bots"
-          >
-            −
-          </button>
-          <span style={stepperValueStyle}>{botCount}</span>
-          <button
-            type="button"
-            onClick={() => setBotCount((value) => Math.min(maxBotsForPlayers, Number(value) + 1))}
-            style={{
-              ...stepperButtonStyle,
-              opacity: botCount >= maxBotsForPlayers ? 0.4 : 1,
-              cursor: botCount >= maxBotsForPlayers ? 'not-allowed' : 'pointer',
-            }}
-            disabled={botCount >= maxBotsForPlayers}
-            aria-label="Increase bots"
-          >
-            +
-          </button>
-        </div>
-      </div>
-
-      {requiredPlayers && (
-        <div style={{ color: theme.colors.textMuted, fontSize: '12px', textAlign: 'right' }}>
-          Hearts needs four players. Add bots to fill empty seats if required.
         </div>
       )}
 
-      <button
-        type="button"
-        style={optionsButtonStyle}
-        onClick={() => setShowOptionsModal(true)}
-      >
-        Game options
-      </button>
-
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginTop: '4px',
-          gap: '8px',
-        }}
-      >
-        <button type="button" onClick={onCancel} style={tertiaryButton}>
-          Back
-        </button>
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={!canSubmit}
-          style={{
-            ...primaryButton,
-            opacity: canSubmit ? 1 : 0.4,
-            cursor: canSubmit ? 'pointer' : 'not-allowed',
-          }}
-        >
-          Create lobby
-        </button>
-      </div>
-
       {showOptionsModal && (
-        <div style={modalBackdropStyle}>
-          <div style={modalStyle}>
-            <p style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Custom game rules</p>
-            <p style={{ margin: 0, color: theme.colors.textSecondary, fontSize: '14px' }}>
-              Rule editing isn&apos;t ready yet. Join the Discord to share suggestions!
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={() => setShowOptionsModal(false)}
-                style={{ ...tertiaryButton, padding: '8px 14px' }}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+        <OverlayModal
+          onClose={() => setShowOptionsModal(false)}
+          ariaLabel="Advanced options"
+          maxWidth="min(640px, 100%)"
+          zIndex={100}
+        >
+          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ margin: 0, fontSize: scaleFont('20px') }}>Advanced options</h2>
+            <button type="button" onClick={() => setShowOptionsModal(false)} style={tertiaryButton}>
+              Close
+            </button>
+          </header>
+          <p style={{ margin: 0, color: theme.colors.textSecondary, fontSize: scaleFont('14px') }}>
+            Configure seats, bots, and lobby privacy before creating the room. Use the visibility toggle to
+            require a password for private matches.
+          </p>
+          <footer style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <button type="button" style={tertiaryButton} onClick={() => setShowOptionsModal(false)}>
+              Done
+            </button>
+          </footer>
+        </OverlayModal>
       )}
 
       {showPasswordModal && (
-        <div style={modalBackdropStyle}>
-          <div style={modalStyle}>
-            <p style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>Set lobby password</p>
-            <input
-              value={password}
-              onChange={(event) => {
-                setPassword(event.target.value);
-                setPasswordError('');
-              }}
-              placeholder="eg. foxes-rule"
-              style={{ ...inputStyle, width: '100%' }}
-              type="password"
-            />
-            {passwordError && (
-              <p style={{ margin: 0, fontSize: '12px', color: theme.colors.accentDanger, textAlign: 'left' }}>
-                {passwordError}
-              </p>
-            )}
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowPasswordModal(false);
-                  setPasswordError('');
-                }}
-                style={{ ...tertiaryButton, padding: '8px 14px' }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!password.trim()) {
-                    setPasswordError('Password cannot be empty.');
-                    return;
-                  }
-                  setShowPasswordModal(false);
-                  handleSubmit();
-                }}
-                style={{ ...primaryButton, padding: '8px 14px' }}
-              >
-                Save &amp; continue
-              </button>
-            </div>
-          </div>
-        </div>
+        <OverlayModal
+          onClose={() => setShowPasswordModal(false)}
+          ariaLabel="Private lobby password"
+          maxWidth="min(420px, 100%)"
+          zIndex={110}
+        >
+          <h2 style={{ margin: 0, fontSize: scaleFont('18px') }}>Private lobby password</h2>
+          <p style={{ margin: 0, color: theme.colors.textSecondary, fontSize: scaleFont('14px') }}>
+            Share the password with invited players. They will need this code to join the lobby.
+          </p>
+          <input
+            value={password}
+            onChange={(event) => {
+              setPassword(event.target.value);
+              setPasswordError('');
+            }}
+            placeholder="Secret code"
+            style={inputStyle}
+          />
+          {passwordError && (
+            <p style={{ margin: 0, color: theme.colors.accentDanger, fontSize: scaleFont('12px') }}>{passwordError}</p>
+          )}
+          <footer style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+            <button type="button" style={tertiaryButton} onClick={() => setShowPasswordModal(false)}>
+              Cancel
+            </button>
+            <button type="button" style={primaryButton} onClick={() => setShowPasswordModal(false)}>
+              Save
+            </button>
+          </footer>
+        </OverlayModal>
       )}
     </div>
   );

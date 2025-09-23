@@ -1,251 +1,28 @@
-const cloneState = (state) => JSON.parse(JSON.stringify(state));
+import { PhotonClientBase } from './photon/baseClient.js';
+import { cloneState } from './photon/stateUtils.js';
 
-const normalisePlayerStatus = (player) => ({
-  ...player,
-  isSpectator: false,
-  status: ['notReady', 'ready', 'needsTime'].includes(player.status)
-    ? player.status
-    : (player.isReady ? 'ready' : 'notReady'),
-});
+export class PhotonClient extends PhotonClientBase {
+  async connect({ userId, userName, engineId } = {}) {
+    this.setStatus('connecting');
 
-const normaliseSpectator = (player) => ({
-  ...player,
-  isSpectator: true,
-  isReady: false,
-  status: 'notReady',
-});
-
-class PhotonClient {
-  constructor(engine) {
-    this.engine = engine;
-    this.state = cloneState(engine.createInitialState());
-    this.listeners = new Set();
-    this.botTimeout = null;
-  }
-
-  setEngine(engine) {
-    if (this.engine?.id === engine.id) return;
-    this.clearBotTimeout();
-    this.engine = engine;
-    this.state = cloneState(engine.createInitialState({
-      userId: this.state.userId,
-      userName: this.state.userName,
-    }));
-    this.notify();
-  }
-
-  getState() {
-    return this.state;
-  }
-
-  connect({ userId, userName, engineId } = {}) {
     if (engineId && this.engine?.id !== engineId) {
-      throw new Error(`PhotonClient engine mismatch: expected ${this.engine?.id}, received ${engineId}`);
+      const error = new Error(`PhotonClient engine mismatch: expected ${this.engine?.id}, received ${engineId}`);
+      this.setStatus('error', error);
+      throw error;
     }
+
     this.state = cloneState(
       this.engine.createInitialState({
         userId,
         userName: userName ?? '',
       }),
     );
+    this.snapshotCache = null;
     this.notify();
     this.runAutomation();
-  }
+    this.setStatus('connected');
 
-  subscribe(listener) {
-    this.listeners.add(listener);
-    listener(this.state);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  }
-
-  disconnect() {
-    this.clearBotTimeout();
-    this.listeners.clear();
-  }
-
-  setDisplayName(name) {
-    this.dispatch({ type: 'SET_NAME', payload: name });
-  }
-
-  createRoom(options) {
-    this.dispatch({ type: 'CREATE_ROOM', payload: { settings: options?.settings, roomId: options?.roomId } });
-  }
-
-  toggleReady(playerId) {
-    this.dispatch({ type: 'TOGGLE_READY', payload: { playerId } });
-  }
-
-  setPlayerStatus(playerId, status) {
-    this.dispatch({ type: 'SET_PLAYER_STATUS', payload: { playerId, status } });
-  }
-
-  updateSeatLayout({ seatOrder, benchOrder, maxSeats, kickedIds }) {
-    this.dispatch({
-      type: 'SET_SEAT_LAYOUT',
-      payload: { seatOrder, benchOrder, maxSeats, kickedIds },
-    });
-  }
-
-  addBot() {
-    this.dispatch({ type: 'ADD_BOT' });
-  }
-
-  removeBot() {
-    this.dispatch({ type: 'REMOVE_BOT' });
-  }
-
-  startGame() {
-    this.dispatch({ type: 'START_GAME' });
-  }
-
-  playCard(playerId, card, chosenSuit) {
-    this.dispatch({ type: 'PLAY_CARD', payload: { playerId, card, chosenSuit } });
-  }
-
-  drawCard(playerId) {
-    this.dispatch({ type: 'DRAW_CARD', payload: { playerId } });
-  }
-
-  returnToLobby() {
-    this.dispatch({ type: 'RETURN_TO_LOBBY' });
-  }
-
-  exportRoomSnapshot() {
-    return cloneState(this.state);
-  }
-
-  loadRoom(roomState, currentUser) {
-    this.clearBotTimeout();
-    const snapshot = cloneState(roomState);
-    const userId = currentUser?.userId ?? snapshot.userId;
-    const userName = currentUser?.userName ?? snapshot.userName ?? 'Player';
-    snapshot.userId = userId;
-    snapshot.userName = userName;
-    if (!Array.isArray(snapshot.players)) {
-      snapshot.players = [];
-    }
-    snapshot.players = snapshot.players
-      .map((player) => normalisePlayerStatus({ ...player }))
-      .filter((player, index, array) => array.findIndex((candidate) => candidate.id === player.id) === index);
-    if (!Array.isArray(snapshot.spectators)) {
-      snapshot.spectators = [];
-    }
-    snapshot.spectators = snapshot.spectators
-      .map((spectator) => normaliseSpectator({ ...spectator }))
-      .filter((spectator, index, array) => array.findIndex((candidate) => candidate.id === spectator.id) === index);
-
-    const seatLimit = snapshot.roomSettings?.maxPlayers ?? Infinity;
-
-    const playerIndex = snapshot.players.findIndex((player) => player.id === userId);
-    const spectatorIndex = snapshot.spectators.findIndex((spectator) => spectator.id === userId);
-
-    if (playerIndex === -1 && spectatorIndex === -1) {
-      if (snapshot.players.length >= seatLimit) {
-        snapshot.spectators.push(normaliseSpectator({ id: userId, name: userName, isBot: false, isHost: false }));
-      } else {
-        snapshot.players.push({
-          id: userId,
-          name: userName,
-          isBot: false,
-          isHost: false,
-          isReady: false,
-          status: 'notReady',
-          isSpectator: false,
-        });
-      }
-    } else if (playerIndex >= 0) {
-      snapshot.players[playerIndex] = normalisePlayerStatus({
-        ...snapshot.players[playerIndex],
-        name: userName,
-        isBot: false,
-      });
-    } else if (spectatorIndex >= 0) {
-      snapshot.spectators[spectatorIndex] = normaliseSpectator({
-        ...snapshot.spectators[spectatorIndex],
-        name: userName,
-        isBot: false,
-        isHost: false,
-      });
-    }
-
-    if (snapshot.hostId && snapshot.players.every((player) => player.id !== snapshot.hostId)) {
-      const hostSpectatorIndex = snapshot.spectators.findIndex((spectator) => spectator.id === snapshot.hostId);
-      if (hostSpectatorIndex >= 0) {
-        const [hostRecord] = snapshot.spectators.splice(hostSpectatorIndex, 1);
-        if (snapshot.players.length >= seatLimit) {
-          snapshot.spectators.push(normaliseSpectator(hostRecord));
-        } else {
-          snapshot.players.unshift(normalisePlayerStatus(hostRecord));
-        }
-      }
-    }
-
-    snapshot.phase = snapshot.phase === 'playing' || snapshot.phase === 'finished' ? snapshot.phase : 'roomLobby';
-    this.state = snapshot;
-    this.notify();
-    this.runAutomation();
-  }
-
-  resetSession() {
-    this.dispatch({ type: 'RESET_SESSION' });
-  }
-
-  dispatch(action) {
-    const nextState = this.engine.reducer(this.state, action);
-    const stateChanged = nextState !== this.state;
-    this.state = nextState;
-    if (stateChanged) {
-      this.notify();
-      this.runAutomation();
-    }
-  }
-
-  notify() {
-    for (const listener of this.listeners) {
-      listener(this.state);
-    }
-  }
-
-  runAutomation() {
-    this.handleLobbyAutopilot();
-    this.scheduleBotMove();
-  }
-
-  handleLobbyAutopilot() {
-    if (this.state.phase !== 'roomLobby') return;
-    const humans = this.state.players.filter((player) => !player.isBot);
-    if (humans.length === 0) return;
-    const humansReady = humans.every((player) => player.isReady);
-    const botsNeedReady = this.state.players.some((player) => player.isBot && !player.isReady);
-    if (humansReady && botsNeedReady) {
-      this.dispatch({ type: 'AUTO_READY_BOTS' });
-    }
-  }
-
-  scheduleBotMove() {
-    this.clearBotTimeout();
-    if (this.state.phase !== 'playing') return;
-    if (!this.engine.getBotAction) return;
-    const currentPlayer = this.state.players.find((player) => player.id === this.state.currentTurn);
-    if (!currentPlayer || !currentPlayer.isBot) return;
-
-    const delay = this.engine.botThinkDelay ?? 0;
-    this.botTimeout = setTimeout(() => {
-      const latestPlayer = this.state.players.find((player) => player.id === this.state.currentTurn);
-      if (!latestPlayer || !latestPlayer.isBot) return;
-      const action = this.engine.getBotAction(this.state, latestPlayer);
-      if (action) {
-        this.dispatch(action);
-      }
-    }, delay);
-  }
-
-  clearBotTimeout() {
-    if (!this.botTimeout) return;
-    clearTimeout(this.botTimeout);
-    this.botTimeout = null;
+    return this.state;
   }
 }
 

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import useMediaQuery from '../hooks/useMediaQuery.js';
 import useViewportSize from '../hooks/useViewportSize.js';
-import { useTheme } from '../ui/ThemeContext.jsx';
+import { useCustomizationTokens } from '../customization/CustomizationContext.jsx';
 
 const providerOptions = [
   'Login with Google',
@@ -18,7 +18,13 @@ const LoginHub = ({ defaultName = '', onSubmit }) => {
   const { height: viewportHeight } = useViewportSize();
   const isShortBreakpoint = useMediaQuery('(max-height: 720px)');
   const isShort = viewportHeight > 0 ? viewportHeight < 720 : isShortBreakpoint;
-  const { theme } = useTheme();
+  const {
+    theme,
+    pieces,
+    scaleFont,
+    motionDuration,
+    accessibility,
+  } = useCustomizationTokens();
 
   const handleSubmit = () => {
     if (!ready) return;
@@ -56,20 +62,22 @@ const LoginHub = ({ defaultName = '', onSubmit }) => {
     border: `1px solid ${theme.colors.border}`,
     background: theme.colors.surfaceMuted,
     color: theme.colors.textPrimary,
-    fontSize: isCompact || isShort ? '15px' : '16px',
-  }), [isCompact, isShort, theme]);
+    fontSize: scaleFont(isCompact || isShort ? '15px' : '16px'),
+  }), [isCompact, isShort, theme, scaleFont]);
+
+  const transitionValue = accessibility?.reducedMotion ? 'none' : `transform ${motionDuration('0.2s')} ease, opacity ${motionDuration('0.2s')} ease`;
 
   const primaryButtonStyle = useMemo(() => ({
     padding: '10px 16px',
     borderRadius: '999px',
     border: 'none',
-    fontSize: '16px',
+    fontSize: scaleFont('16px'),
     fontWeight: 600,
     cursor: 'pointer',
     color: theme.buttons.primaryText,
-    background: theme.buttons.primaryBg,
-    transition: 'transform 0.2s ease, opacity 0.2s ease',
-  }), [theme]);
+    background: pieces.primary ?? theme.buttons.primaryBg,
+    transition: transitionValue,
+  }), [theme, pieces.primary, transitionValue, scaleFont]);
 
   const secondaryButtonStyle = useMemo(() => ({
     padding: '10px 16px',
@@ -77,11 +85,11 @@ const LoginHub = ({ defaultName = '', onSubmit }) => {
     border: `1px solid ${theme.buttons.subtleBorder}`,
     background: theme.buttons.subtleBg,
     color: theme.buttons.subtleText,
-    fontSize: '16px',
+    fontSize: scaleFont('16px'),
     fontWeight: 600,
     cursor: 'pointer',
-    transition: 'transform 0.2s ease, opacity 0.2s ease',
-  }), [theme]);
+    transition: transitionValue,
+  }), [theme, transitionValue, scaleFont]);
 
   const providerButtonStyle = useMemo(() => ({
     padding: '8px 12px',
@@ -89,20 +97,20 @@ const LoginHub = ({ defaultName = '', onSubmit }) => {
     border: `1px solid ${theme.buttons.subtleBorder}`,
     background: theme.buttons.ghostBg,
     color: theme.colors.textSecondary,
-    fontSize: '14px',
+    fontSize: scaleFont('14px'),
     fontWeight: 600,
     cursor: 'pointer',
-    transition: 'transform 0.2s ease, border 0.2s ease',
+    transition: transitionValue,
     textAlign: 'center',
-  }), [theme]);
+  }), [theme, transitionValue, scaleFont]);
 
   const labelStyle = useMemo(() => ({
     display: 'flex',
     flexDirection: 'column',
     gap: '6px',
     color: theme.colors.textSecondary,
-    fontSize: isCompact || isShort ? '14px' : '15px',
-  }), [isCompact, isShort, theme]);
+    fontSize: scaleFont(isCompact || isShort ? '14px' : '15px'),
+  }), [isCompact, isShort, theme, scaleFont]);
 
   return (
     <div style={containerStyle}>
@@ -111,7 +119,7 @@ const LoginHub = ({ defaultName = '', onSubmit }) => {
           <h1
             style={{
               margin: 0,
-              fontSize: isCompact || isShort ? '24px' : '28px',
+              fontSize: scaleFont(isCompact || isShort ? '24px' : '28px'),
               color: theme.colors.textPrimary,
             }}
           >
@@ -189,8 +197,8 @@ const LoginHub = ({ defaultName = '', onSubmit }) => {
               }}
             >
               <div>
-                <h2 style={{ margin: 0, fontSize: '22px' }}>Login unavailable</h2>
-                <p style={{ marginTop: '10px', color: theme.colors.textMuted, fontSize: '14px' }}>
+                <h2 style={{ margin: 0, fontSize: scaleFont('22px') }}>Login unavailable</h2>
+                <p style={{ marginTop: '10px', color: theme.colors.textMuted, fontSize: scaleFont('14px') }}>
                   Direct login is coming soon. Proceeding as a guest for now.
                 </p>
               </div>
@@ -198,9 +206,13 @@ const LoginHub = ({ defaultName = '', onSubmit }) => {
                 <button
                   type="button"
                   onClick={() => setLoginUnavailable(false)}
-                  style={secondaryButtonStyle}
+                  style={{
+                    ...secondaryButtonStyle,
+                    borderColor: theme.colors.accentDanger,
+                    color: theme.colors.accentDanger,
+                  }}
                 >
-                  OK
+                  Cancel
                 </button>
                 <button
                   type="button"

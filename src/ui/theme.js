@@ -1,3 +1,6 @@
+import { SUIT_COLORS } from '../lib/cards.js';
+import { createRegistry } from '../lib/registry.js';
+
 const baseTokens = {
   colors: {
     background: '#0f172a',
@@ -62,6 +65,12 @@ const baseTokens = {
     text: '#f8fafc',
     accent: '#38bdf8',
     border: 'rgba(148,163,184,0.4)',
+    suits: {
+      hearts: SUIT_COLORS.hearts,
+      diamonds: SUIT_COLORS.diamonds,
+      clubs: SUIT_COLORS.clubs,
+      spades: SUIT_COLORS.spades,
+    },
   },
   table: {
     felt: '#14532d',
@@ -121,149 +130,188 @@ const createTheme = (id, config = {}) => {
   });
 };
 
-export const themes = {
-  midnight: createTheme('midnight', {
-    name: 'Midnight Shift',
-    customization: {
-      suggestedPresetId: 'midnight-classic',
-      suggestedCardSkinId: 'classic',
-      suggestedTableSkinId: 'emerald-club',
-      suggestedPieceSkinId: 'classic',
-      suggestedBackdropId: 'nebula-night',
-    },
-  }),
-  aurora: createTheme('aurora', {
-    name: 'Aurora Bloom',
-    customization: {
-      suggestedPresetId: 'aurora-bloom',
-      suggestedCardSkinId: 'aurora',
-      suggestedTableSkinId: 'aurora-veil',
-      suggestedPieceSkinId: 'aurora',
-      suggestedBackdropId: 'aurora-sky',
-    },
-    colors: {
-      background: '#09091a',
-      surface: 'rgba(18,14,35,0.8)',
-      surfaceAlt: 'rgba(27,19,54,0.8)',
-      surfaceMuted: 'rgba(17,24,39,0.6)',
-      textSecondary: '#dbeafe',
-      textMuted: '#b4c6f0',
-      accentPrimary: '#a855f7',
-      accentPrimarySoft: 'rgba(168,85,247,0.25)',
-      accentInfo: '#a855f7',
-      accentDanger: '#f472b6',
-      accentDangerSoft: 'rgba(244,114,182,0.35)',
-      accentSuccess: '#34d399',
-      accentWarning: '#f472b6',
-      cardFace: '#1e1b4b',
-      cardBack: '#7c3aed',
-      cardHighlight: 'rgba(168,85,247,0.35)',
-      tableFelt: '#1b184f',
-      tableBorder: 'rgba(168,85,247,0.38)',
-      tableHighlight: '#c084fc',
-      overlayScrim: 'rgba(12,10,30,0.7)',
-    },
-    gradients: {
-      shellTop: 'radial-gradient(circle at top, rgba(168,85,247,0.18), transparent 55%)',
-      shellBottom: 'radial-gradient(circle at bottom, rgba(236,72,153,0.15), transparent 50%)',
-    },
-    cards: {
-      face: '#1e1b4b',
-      back: '#7c3aed',
-      accent: '#f9a8d4',
-    },
-    table: {
-      felt: '#1b184f',
-      border: 'rgba(168,85,247,0.38)',
-      highlight: '#c084fc',
-      panel: 'rgba(24,20,45,0.78)',
-    },
-    buttons: {
-      primaryBg: 'linear-gradient(135deg, rgba(168,85,247,0.35), rgba(236,72,153,0.35))',
-      primaryText: '#fce7f3',
-      primaryBorder: 'rgba(236,72,153,0.45)',
-      subtleBg: 'rgba(30,27,75,0.45)',
-      subtleBorder: 'rgba(129,140,248,0.25)',
-      subtleText: '#e2e8f0',
-      iconBg: 'rgba(46,34,82,0.55)',
-      iconActiveBg: 'rgba(46,34,82,0.75)',
-      iconBorder: 'rgba(129,140,248,0.35)',
-      dangerBg: 'rgba(244,114,182,0.18)',
-      dangerBorder: 'rgba(244,114,182,0.4)',
-      dangerText: '#ffe4f0',
-      ghostText: '#c4b5fd',
-    },
-  }),
-  summit: createTheme('summit', {
-    name: 'Summit Dawn',
-    customization: {
-      suggestedPresetId: 'summit-dawn',
-      suggestedCardSkinId: 'summit',
-      suggestedTableSkinId: 'summit-felt',
-      suggestedPieceSkinId: 'summit',
-      suggestedBackdropId: 'summit-horizon',
-    },
-    colors: {
-      background: '#0b1a17',
-      surface: 'rgba(11,26,23,0.82)',
-      surfaceAlt: 'rgba(15,32,28,0.78)',
-      surfaceMuted: 'rgba(13,29,24,0.6)',
-      textSecondary: '#cde4de',
-      textMuted: '#9bbab3',
-      accentPrimary: '#0ea5e9',
-      accentPrimarySoft: 'rgba(14,165,233,0.22)',
-      accentInfo: '#2dd4bf',
-      accentSuccess: '#22c55e',
-      accentWarning: '#f59e0b',
-      accentDanger: '#f97316',
-      accentDangerSoft: 'rgba(249,115,22,0.35)',
-      cardFace: '#134e4a',
-      cardBack: '#047857',
-      cardHighlight: 'rgba(45,212,191,0.35)',
-      tableFelt: '#164e63',
-      tableBorder: 'rgba(14,165,233,0.38)',
-      tableHighlight: '#38bdf8',
-      overlayScrim: 'rgba(8,20,18,0.65)',
-    },
-    gradients: {
-      shellTop: 'radial-gradient(circle at top, rgba(14,165,233,0.18), transparent 55%)',
-      shellBottom: 'radial-gradient(circle at bottom, rgba(245,158,11,0.15), transparent 50%)',
-    },
-    cards: {
-      face: '#134e4a',
-      back: '#0f766e',
-      accent: '#2dd4bf',
-    },
-    table: {
-      felt: '#164e63',
-      border: 'rgba(14,165,233,0.38)',
-      highlight: '#38bdf8',
-      panel: 'rgba(11,26,23,0.82)',
-    },
-    buttons: {
-      primaryBg: 'linear-gradient(135deg, rgba(14,165,233,0.35), rgba(45,212,191,0.35))',
-      primaryText: '#ecfeff',
-      primaryBorder: 'rgba(45,212,191,0.45)',
-      subtleBg: 'rgba(15,32,28,0.45)',
-      subtleBorder: 'rgba(45,212,191,0.25)',
-      subtleText: '#d1fae5',
-      iconBg: 'rgba(12,38,34,0.55)',
-      iconActiveBg: 'rgba(12,38,34,0.72)',
-      iconBorder: 'rgba(45,212,191,0.35)',
-      dangerBg: 'rgba(249,115,22,0.18)',
-      dangerBorder: 'rgba(249,115,22,0.4)',
-      dangerText: '#ffedd5',
-      ghostText: '#a5f3fc',
-    },
-  }),
+const themeRegistry = createRegistry({ name: 'theme' });
+
+export const registerTheme = (theme, options) => {
+  if (!theme?.id) {
+    throw new Error('registerTheme: theme must include an id');
+  }
+  return themeRegistry.register(deepFreeze(theme), options);
 };
 
-deepFreeze(themes);
+export const unregisterTheme = (id) => themeRegistry.unregister(id);
 
-export const defaultThemeId = 'midnight';
-export const defaultTheme = themes[defaultThemeId];
+registerTheme(createTheme('midnight', {
+  name: 'Midnight Shift',
+  customization: {
+    suggestedPresetId: 'midnight-classic',
+    suggestedCardSkinId: 'classic',
+    suggestedTableSkinId: 'emerald-club',
+    suggestedPieceSkinId: 'classic',
+    suggestedBackdropId: 'nebula-night',
+  },
+}), { default: true });
+
+registerTheme(createTheme('aurora', {
+  name: 'Aurora Bloom',
+  customization: {
+    suggestedPresetId: 'aurora-bloom',
+    suggestedCardSkinId: 'aurora',
+    suggestedTableSkinId: 'aurora-veil',
+    suggestedPieceSkinId: 'aurora',
+    suggestedBackdropId: 'aurora-sky',
+  },
+  colors: {
+    background: '#09091a',
+    surface: 'rgba(18,14,35,0.8)',
+    surfaceAlt: 'rgba(27,19,54,0.8)',
+    surfaceMuted: 'rgba(17,24,39,0.6)',
+    textSecondary: '#dbeafe',
+    textMuted: '#b4c6f0',
+    accentPrimary: '#a855f7',
+    accentPrimarySoft: 'rgba(168,85,247,0.25)',
+    accentInfo: '#a855f7',
+    accentDanger: '#f472b6',
+    accentDangerSoft: 'rgba(244,114,182,0.35)',
+    accentSuccess: '#34d399',
+    accentWarning: '#f472b6',
+    cardFace: '#1e1b4b',
+    cardBack: '#7c3aed',
+    cardHighlight: 'rgba(168,85,247,0.35)',
+    tableFelt: '#1b184f',
+    tableBorder: 'rgba(168,85,247,0.38)',
+    tableHighlight: '#c084fc',
+    overlayScrim: 'rgba(12,10,30,0.7)',
+  },
+  gradients: {
+    shellTop: 'radial-gradient(circle at top, rgba(168,85,247,0.18), transparent 55%)',
+    shellBottom: 'radial-gradient(circle at bottom, rgba(236,72,153,0.15), transparent 50%)',
+  },
+  cards: {
+    face: '#1e1b4b',
+    back: '#7c3aed',
+    accent: '#f9a8d4',
+  },
+  table: {
+    felt: '#1b184f',
+    border: 'rgba(168,85,247,0.38)',
+    highlight: '#c084fc',
+    panel: 'rgba(24,20,45,0.78)',
+  },
+  buttons: {
+    primaryBg: 'linear-gradient(135deg, rgba(168,85,247,0.35), rgba(236,72,153,0.35))',
+    primaryText: '#fce7f3',
+    primaryBorder: 'rgba(236,72,153,0.45)',
+    subtleBg: 'rgba(30,27,75,0.45)',
+    subtleBorder: 'rgba(129,140,248,0.25)',
+    subtleText: '#e2e8f0',
+    iconBg: 'rgba(46,34,82,0.55)',
+    iconActiveBg: 'rgba(46,34,82,0.75)',
+    iconBorder: 'rgba(129,140,248,0.35)',
+    dangerBg: 'rgba(244,114,182,0.18)',
+    dangerBorder: 'rgba(244,114,182,0.4)',
+    dangerText: '#ffe4f0',
+    ghostText: '#c4b5fd',
+  },
+}));
+
+registerTheme(createTheme('summit', {
+  name: 'Summit Dawn',
+  customization: {
+    suggestedPresetId: 'summit-dawn',
+    suggestedCardSkinId: 'summit',
+    suggestedTableSkinId: 'summit-felt',
+    suggestedPieceSkinId: 'summit',
+    suggestedBackdropId: 'summit-horizon',
+  },
+  colors: {
+    background: '#0b1a17',
+    surface: 'rgba(11,26,23,0.82)',
+    surfaceAlt: 'rgba(15,32,28,0.78)',
+    surfaceMuted: 'rgba(13,29,24,0.6)',
+    textSecondary: '#cde4de',
+    textMuted: '#9bbab3',
+    accentPrimary: '#0ea5e9',
+    accentPrimarySoft: 'rgba(14,165,233,0.22)',
+    accentInfo: '#2dd4bf',
+    accentSuccess: '#22c55e',
+    accentWarning: '#f59e0b',
+    accentDanger: '#f97316',
+    accentDangerSoft: 'rgba(249,115,22,0.35)',
+    cardFace: '#134e4a',
+    cardBack: '#047857',
+    cardHighlight: 'rgba(45,212,191,0.35)',
+    tableFelt: '#164e63',
+    tableBorder: 'rgba(14,165,233,0.38)',
+    tableHighlight: '#38bdf8',
+    overlayScrim: 'rgba(8,20,18,0.65)',
+  },
+  gradients: {
+    shellTop: 'radial-gradient(circle at top, rgba(14,165,233,0.18), transparent 55%)',
+    shellBottom: 'radial-gradient(circle at bottom, rgba(245,158,11,0.15), transparent 50%)',
+  },
+  cards: {
+    face: '#134e4a',
+    back: '#0f766e',
+    accent: '#2dd4bf',
+  },
+  table: {
+    felt: '#164e63',
+    border: 'rgba(14,165,233,0.38)',
+    highlight: '#38bdf8',
+    panel: 'rgba(11,26,23,0.82)',
+  },
+  buttons: {
+    primaryBg: 'linear-gradient(135deg, rgba(14,165,233,0.35), rgba(45,212,191,0.35))',
+    primaryText: '#ecfeff',
+    primaryBorder: 'rgba(45,212,191,0.45)',
+    subtleBg: 'rgba(15,32,28,0.45)',
+    subtleBorder: 'rgba(45,212,191,0.25)',
+    subtleText: '#d1fae5',
+    iconBg: 'rgba(12,38,34,0.55)',
+    iconActiveBg: 'rgba(12,38,34,0.72)',
+    iconBorder: 'rgba(45,212,191,0.35)',
+    dangerBg: 'rgba(249,115,22,0.18)',
+    dangerBorder: 'rgba(249,115,22,0.4)',
+    dangerText: '#ffedd5',
+    ghostText: '#a5f3fc',
+  },
+}));
+
+export const listThemes = () => themeRegistry.list();
+
+export const getThemeById = (id) => {
+  if (id && themeRegistry.has(id)) {
+    return themeRegistry.get(id);
+  }
+  const fallbackId = themeRegistry.getDefaultKey();
+  return fallbackId ? themeRegistry.get(fallbackId) : null;
+};
+
+export const getDefaultThemeId = () => themeRegistry.getDefaultKey();
+
+export const defaultThemeId = getDefaultThemeId();
+
+export const defaultTheme = getThemeById(defaultThemeId);
+
 export const theme = defaultTheme; // backward compatibility
 
-export const listThemes = () => Object.values(themes);
-
-export const getThemeById = (id) => themes[id] ?? defaultTheme;
+export const themes = new Proxy({}, {
+  get: (_, prop) => {
+    if (typeof prop !== 'string') {
+      return undefined;
+    }
+    return themeRegistry.has(prop) ? themeRegistry.get(prop) : undefined;
+  },
+  ownKeys: () => themeRegistry.keys(),
+  getOwnPropertyDescriptor: (_, prop) => {
+    if (!themeRegistry.has(prop)) {
+      return undefined;
+    }
+    return {
+      configurable: true,
+      enumerable: true,
+      value: themeRegistry.get(prop),
+    };
+  },
+});

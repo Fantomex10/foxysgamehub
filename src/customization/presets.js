@@ -1,5 +1,9 @@
-export const presets = {
-  'midnight-classic': {
+import { createRegistry } from '../lib/registry.js';
+
+const presetRegistry = createRegistry({ name: 'preset' });
+
+const basePresets = [
+  {
     id: 'midnight-classic',
     name: 'Midnight Classic',
     description: 'Default foxhole palette with emerald felt.',
@@ -9,7 +13,7 @@ export const presets = {
     pieceSkinId: 'classic',
     backdropId: 'nebula-night',
   },
-  'aurora-bloom': {
+  {
     id: 'aurora-bloom',
     name: 'Aurora Bloom',
     description: 'Violet bloom with neon deck and cosmic felt.',
@@ -19,7 +23,7 @@ export const presets = {
     pieceSkinId: 'aurora',
     backdropId: 'aurora-sky',
   },
-  'summit-dawn': {
+  {
     id: 'summit-dawn',
     name: 'Summit Dawn',
     description: 'Alpine sunrise with frosted felt and glacier tokens.',
@@ -29,10 +33,16 @@ export const presets = {
     pieceSkinId: 'summit',
     backdropId: 'summit-horizon',
   },
-};
+];
 
-export const defaultPresetId = 'midnight-classic';
+presetRegistry.registerMany(basePresets);
 
-export const listPresets = () => Object.values(presets);
+export const registerPreset = (preset, options) => presetRegistry.register(preset, options);
 
-export const getPresetById = (id) => presets[id] ?? null;
+export const unregisterPreset = (id) => presetRegistry.unregister(id);
+
+export const listPresets = () => presetRegistry.list();
+
+export const getPresetById = (id) => presetRegistry.get(id);
+
+export const getDefaultPresetId = () => presetRegistry.getDefaultKey();

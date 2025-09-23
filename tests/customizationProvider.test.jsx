@@ -1,8 +1,9 @@
-import { renderHook, act } from '@testing-library/react';
+import React from 'react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { beforeEach, afterEach, describe, expect, it } from 'vitest';
 import { CustomizationProvider, useCustomization, useCustomizationTokens } from '../src/customization/CustomizationContext.jsx';
 import { ThemeProvider } from '../src/ui/ThemeContext.jsx';
-import { cardSkins } from '../src/customization/skins/cards.js';
+import { getCardSkinById } from '../src/customization/skins/cards.js';
 
 const attachMockStorage = () => {
   const original = window.localStorage;
@@ -53,7 +54,16 @@ describe('CustomizationProvider', () => {
     const { result } = renderHook(() => useCustomization(), { wrapper });
 
     act(() => {
-      result.current.applyPreset('aurora-bloom');
+      result.current.unlockItems([
+        'skin.cards.aurora',
+        'skin.table.aurora-veil',
+        'skin.pieces.aurora',
+        'backdrop.aurora-sky',
+      ]);
+    });
+
+    act(() => {
+      result.current.applyPreset('aurora-bloom', { force: true });
     });
 
     expect(result.current.state.themeId).toBe('aurora');
@@ -77,9 +87,63 @@ describe('CustomizationProvider', () => {
     );
 
     act(() => {
-      result.current.api.setCardSkin('aurora');
+      result.current.api.unlockItem('skin.cards.aurora');
     });
 
-    expect(result.current.tokens.cards.accent).toBe(cardSkins.aurora.tokens.accent);
+    act(() => {
+      result.current.api.setCardSkin('aurora', { force: true });
+    });
+
+    expect(result.current.tokens.cards.accent).toBe(getCardSkinById('aurora').tokens.accent);
+  });
+
+  it('hydrates from remote profile and updates sync status', () => {
+    const { result } = renderHook(() => useCustomization(), { wrapper });
+
+    const remotePayload = {
+      ...result.current.state,
+      cardSkinId: 'aurora',
+      unlocks: ['skin.cards.aurora'],
+      accessibility: {
+        ...result.current.state.accessibility,
+        highContrast: true,
+      },
+    };
+
+    act(() => {
+      result.current.hydrateFromProfile(remotePayload);
+      result.current.setSyncStatus('synced', null);
+    });
+
+    expect(result.current.state.cardSkinId).toBe('aurora');
+    expect(result.current.state.accessibility.highContrast).toBe(true);
+    expect(result.current.syncState.status).toBe('synced');
+    expect(result.current.unlocks).toContain('skin.cards.aurora');
+  });
+
+  it('applies engine defaults when provided', async () => {
+    const { result } = renderHook(() => useCustomization(), { wrapper });
+
+    await act(async () => {
+      result.current.unlockItems([
+        'skin.cards.aurora',
+        'skin.table.aurora-veil',
+        'skin.pieces.aurora',
+        'backdrop.aurora-sky',
+      ]);
+    });
+
+    await act(async () => {
+      result.current.applyPreset('midnight-classic', { force: true });
+    });
+
+    await act(async () => {
+      result.current.setEngineDefaults('hearts', { presetId: 'aurora-bloom' }, { apply: true });
+    });
+
+    await waitFor(() => {
+      expect(result.current.state.presetId).toBe('aurora-bloom');
+      expect(result.current.state.themeId).toBe('aurora');
+    });
   });
 });

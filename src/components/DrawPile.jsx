@@ -1,7 +1,7 @@
 import { useCustomizationTokens } from '../customization/CustomizationContext.jsx';
 
 const DrawPile = ({ remaining, onDraw, disabled = false }) => {
-  const { theme, cards } = useCustomizationTokens();
+  const { theme, cards, pieces, scaleFont } = useCustomizationTokens();
   const isDisabled = disabled || remaining === 0;
 
   const cardStyle = {
@@ -37,7 +37,7 @@ const DrawPile = ({ remaining, onDraw, disabled = false }) => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          color: cards.text ?? theme.colors.textPrimary,
+          color: cards.text ?? pieces.highlight ?? theme.colors.textPrimary,
           fontWeight: 700,
           background: cards.back ?? cardStyle.background,
         }}
@@ -50,7 +50,7 @@ const DrawPile = ({ remaining, onDraw, disabled = false }) => {
           bottom: -28,
           left: '50%',
           transform: 'translateX(-50%)',
-          fontSize: '12px',
+          fontSize: scaleFont('12px'),
           color: theme.colors.textMuted,
         }}
       >

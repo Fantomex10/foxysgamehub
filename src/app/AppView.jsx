@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { APP_PHASES } from './constants.js';
 import { useAppState } from './context/AppStateContext.jsx';
 import { AppLayout } from './components/AppLayout.jsx';
@@ -6,12 +7,8 @@ import { HubPage } from './pages/HubPage.jsx';
 import { CreateLobbyPage } from './pages/CreateLobbyPage.jsx';
 import { JoinLobbyPage } from './pages/JoinLobbyPage.jsx';
 import { RoomPage } from './pages/RoomPage.jsx';
-
-const statusStyle = {
-  color: '#e2e8f0',
-  textAlign: 'center',
-  padding: '48px',
-};
+import { useCustomizationTokens } from '../customization/CustomizationContext.jsx';
+import { createStatusMessageStyle } from '../ui/stylePrimitives.js';
 
 export const AppView = () => {
   const {
@@ -22,19 +19,28 @@ export const AppView = () => {
     TableComponent,
     engine,
   } = useAppState();
+  const { theme, scaleFont } = useCustomizationTokens();
+  const defaultStatusStyle = useMemo(
+    () => createStatusMessageStyle({ theme, scaleFont }),
+    [theme, scaleFont],
+  );
+  const dangerStatusStyle = useMemo(
+    () => createStatusMessageStyle({ theme, scaleFont }, { tone: 'danger' }),
+    [theme, scaleFont],
+  );
 
   if (!authReady) {
-    return <div style={statusStyle}>Establishing session…</div>;
+    return <div style={defaultStatusStyle}>Establishing session…</div>;
   }
 
   if (!profileLoaded && appPhase === APP_PHASES.ROOM && !profileBlocked) {
-    return <div style={statusStyle}>Synchronising profile…</div>;
+    return <div style={defaultStatusStyle}>Synchronising profile…</div>;
   }
 
   if (!TableComponent) {
     return (
       <AppLayout useShell={false}>
-        <div style={{ ...statusStyle, color: '#f87171' }}>
+        <div style={dangerStatusStyle}>
           Engine "{engine.name}" is missing a Table component.
         </div>
       </AppLayout>

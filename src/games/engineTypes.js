@@ -52,6 +52,17 @@ export const createGameEngine = (definition) => {
     throw new Error('Game engine definition must provide components.Table.');
   }
 
+  const modules = definition.modules ?? {};
+  const hasTableComponent = Boolean(definition.components?.Table);
+  const hasLobbyComponent = Boolean(definition.components?.Lobby);
+
+  if (modules.table && modules.table.Component === undefined && !hasTableComponent) {
+    throw new Error('Game engine table module must expose a Component.');
+  }
+  if (modules.lobby && modules.lobby.Component === undefined && !hasLobbyComponent) {
+    throw new Error('Game engine lobby module must expose a Component.');
+  }
+
   const metadata = definition.metadata ?? {};
   const helpers = definition.helpers ?? {};
   const hooks = definition.hooks ?? {};

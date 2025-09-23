@@ -18,6 +18,9 @@ export const heartsEngine = createGameEngine({
       defaultBots: 0,
     },
   },
+  customizationDefaults: {
+    presetId: 'aurora-bloom',
+  },
   components: {
     Lobby: LobbyView,
     Table: HeartsTable,
@@ -60,3 +63,7 @@ export const heartsEngine = createGameEngine({
   reducer: roomReducer,
   getBotAction: chooseHeartsBotMove,
 });
+
+export const gameEngines = [
+  { engine: heartsEngine },
+];

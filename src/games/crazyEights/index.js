@@ -21,6 +21,9 @@ export const crazyEightsEngine = createGameEngine({
       defaultBots: 0,
     },
   },
+  customizationDefaults: {
+    presetId: 'midnight-classic',
+  },
   components: {
     Welcome: WelcomeScreen,
     Lobby: LobbyView,
@@ -54,3 +57,7 @@ export const crazyEightsEngine = createGameEngine({
   reducer: roomReducer,
   getBotAction: chooseBotMove,
 });
+
+export const gameEngines = [
+  { engine: crazyEightsEngine, options: { default: true } },
+];

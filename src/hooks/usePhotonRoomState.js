@@ -10,18 +10,34 @@ export const usePhotonRoomState = (
   const [state, setState] = useState(() => photon.getState());
   const [profileLoaded, setProfileLoaded] = useState(false);
   const lastPersistedNameRef = useRef(null);
+  const initialDisplayNameRef = useRef(authUser?.displayName ?? '');
+  const userId = authUser?.uid ?? null;
+  const isOffline = Boolean(authUser?.isOffline);
+  const displayName = authUser?.displayName ?? '';
 
   useEffect(() => {
-    if (!authUser) return undefined;
+    if (userId) {
+      initialDisplayNameRef.current = displayName;
+    } else {
+      initialDisplayNameRef.current = '';
+    }
+  }, [userId, displayName]);
+
+  useEffect(() => {
+    if (!userId) return undefined;
 
     setProfileLoaded(false);
 
     photon.setEngine(engine);
 
-    photon.connect({
-      userId: authUser.uid,
-      userName: authUser.displayName ?? '',
+    const connectPromise = Promise.resolve(photon.connect({
+      userId,
+      userName: initialDisplayNameRef.current,
       engineId: engine.id,
+    }));
+
+    connectPromise.catch((error) => {
+      console.warn('[Photon] Failed to connect', error);
     });
 
     const unsubscribe = photon.subscribe((nextState) => {
@@ -30,7 +46,7 @@ export const usePhotonRoomState = (
 
     let cancelled = false;
 
-    if (authUser.isOffline || profileBlocked) {
+    if (isOffline || profileBlocked) {
       setProfileLoaded(true);
       return () => {
         cancelled = true;
@@ -38,7 +54,7 @@ export const usePhotonRoomState = (
       };
     }
 
-    session.fetchPlayerProfile(authUser.uid)
+    session.fetchPlayerProfile(userId)
       .then((existingProfile) => {
         if (cancelled) return;
         if (existingProfile?.displayName) {
@@ -58,15 +74,15 @@ export const usePhotonRoomState = (
       cancelled = true;
       unsubscribe();
     };
-  }, [authUser, photon, engine, profileBlocked, session]);
+  }, [engine, photon, userId, isOffline, profileBlocked, session, onProfileError]);
 
   useEffect(() => {
-    if (!authUser || authUser.isOffline || profileBlocked) return;
+    if (!userId || isOffline || profileBlocked) return;
     const trimmedName = state.userName?.trim();
     if (!trimmedName || trimmedName === lastPersistedNameRef.current) {
       return;
     }
-    session.upsertPlayerProfile(authUser.uid, { displayName: trimmedName })
+    session.upsertPlayerProfile(userId, { displayName: trimmedName })
       .then(() => {
         lastPersistedNameRef.current = trimmedName;
       })
@@ -74,7 +90,7 @@ export const usePhotonRoomState = (
         console.warn('[Session] Failed to persist display name', error);
         onProfileError?.();
       });
-  }, [authUser, state.userName, engine, profileBlocked, session]);
+  }, [userId, isOffline, profileBlocked, state.userName, session, onProfileError]);
 
   return { state, profileLoaded };
 };

@@ -41,6 +41,28 @@
 - Authored `docs/deployment-checklist.md` to track staging vs production readiness tasks.
 - Next: polish panel previews, extend customization to login/lobby screens, and connect selections with service profiles once Firebase integration lands.
 
+## In Progress (Phase 6 – Photon Adapter Hardening)
+- Drafted realtime adapter requirements and lifecycle contract in `docs/photon-adapter.md`.
+- Extended `PhotonClient` with status subscriptions to support UI feedback and future transports.
+- Added `RealtimePhotonClient` scaffold plus adapter configuration plumbing ready for Photon SDK wiring.
+- Surfaced Photon status through `AppStateContext` for banner/error handling; added unit coverage for status lifecycle.
+
+## In Progress (Phase 7 – Customization Sync)
+- Added Firestore helpers + session service plumbing for player customization configs.
+- Hydrate/persist customization state via `AppStateProvider` with debounce + offline handling.
+- Documented the sync contract in `docs/customization.md` and expanded provider tests for hydrate/sync flows.
+
+## In Progress (Phase 8 – State Modularisation)
+- Broke adapter/session logic into `ServiceConfigProvider`, `PhotonProvider`, and `SessionProvider`, exposing telemetry hooks.
+- Simplified `AppStateProvider` to compose the new contexts and added integration coverage around adapter resets/name updates.
+- Wrapped the app with the new provider stack and introduced `app/lib/telemetry.js` for centralised event logging.
+- Extracted shared lobby helpers, reducer/bot factories, and the trick-engine pipeline so card games build on a unified state toolkit with dedicated tests.
+
+## In Progress (Phase 9 – Deployment Guardrails)
+- Added reusable environment diagnostics (`src/app/lib/envValidation.js`) and surfaced issues during bootstrap + telemetry.
+- Created `npm run validate:env`/`npm run validate` scripts and documented the release workflow in `README.md` & `docs/deployment-checklist.md`.
+- Added a CLI utility (`scripts/validate-env.mjs`) so CI or developers can gate builds on configuration health.
+
 ## Notes
 - Backend connectivity is still optional; keep every new module mock-friendly.
 - Maintain reducer/bot contracts in `src/games/*` so future server authority swaps remain straightforward.

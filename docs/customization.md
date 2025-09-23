@@ -48,6 +48,7 @@ export type CustomizationState = {
 ```
 - Defaults derive from registries (see below) and align with existing theme defaults.
 - `presetId` tracks the last applied bundle. Selecting an individual skin clears `presetId` so we know the player is in "custom" mode.
+- Entitlements are tracked separately via `unlocks: string[]`; items without an entitlement entry are always available.
 
 ### Registries
 Files under `src/customization/` will describe available options:
@@ -57,24 +58,31 @@ Files under `src/customization/` will describe available options:
 - `src/customization/skins/pieces.js` – avatars/tokens for future board pieces.
 - `src/customization/backdrops.js` – shell/background imagery or gradient definitions.
 
-Each registry entry sticks to plain objects so engines can extend them without React imports:
+Registries are now powered by the shared `createRegistry` helper so content can be added or removed at runtime. Each module exports `register*`, `unregister*`, `list*`, and `get*ById` helpers plus `getDefault*Id` accessors. The core catalog is still seeded on boot, but feature modules (or engines) can layer in additional assets without touching shared files.
+
+Example: registering a limited-time card back during feature initialization.
+
 ```ts
-export const cardSkins = {
-  classic: {
-    id: 'classic',
-    name: 'Classic Deck',
-    description: 'Neutral face cards with midnight backs.',
-    tokens: {
-      face: '#1f2937',
-      back: '#2563eb',
-      accent: '#38bdf8',
-      text: '#f8fafc',
-      border: 'rgba(148,163,184,0.4)',
-    },
+import { registerCardSkin } from '@/customization';
+
+registerCardSkin({
+  id: 'limited-nebula',
+  name: 'Nebula Foil',
+  description: 'Animated foil finish from the seasonal pass.',
+  entitlement: { id: 'skin.cards.nebula', price: 1200, currency: 'chips' },
+  tokens: {
+    face: '#1b1035',
+    back: '#7f5af0',
+    accent: '#ff99dd',
+    text: '#f8f9ff',
+    border: 'rgba(127,90,240,0.55)',
   },
-  retro: { /* ... */ },
-};
+});
 ```
+
+Premium entries still add an `entitlement` block so the provider can gate availability and pricing (for example `entitlement: { id: 'skin.cards.aurora', price: 450, currency: 'chips' }`).
+
+The hub UI consumes categories registered via `src/customization/categoriesRegistry.js` so new sections (e.g., avatars, animations) can be added without editing the panel component. Each category contributes a `buildSection(context)` function that returns the props consumed by `OptionSection`.
 
 ### Linking Themes and Skins
 Themes can provide optional recommendations without enforcing them:
@@ -89,12 +97,13 @@ createTheme('midnight', {
 });
 ```
 - The customization provider reads these hints when applying a theme.
-- Engine modules may offer overrides via a new optional key (`engine.customizationDefaults`).
+- Engine modules may offer overrides via `engine.customizationDefaults`; the provider sanitises those values and applies them when the engine becomes active.
 
 ## Provider Contract
 ```ts
 const CustomizationContext = createContext({
   state: defaultCustomizationState,
+  unlocks: [] as string[],
   setThemeId: (id: string) => void,
   setCardSkin: (id: string) => void,
   setTableSkin: (id: string) => void,
@@ -103,25 +112,36 @@ const CustomizationContext = createContext({
   toggleAccessibility: (flag: keyof AccessibilityFlags) => void,
   applyPreset: (presetId: string) => void,
   reset: () => void,
+  hydrateFromProfile: (config: Partial<CustomizationState> & { unlocks?: string[] }) => void,
+  unlockItem: (entitlementId: string) => void,
+  unlockItems: (entitlementIds: string[]) => void,
+  setSyncStatus: (status: SyncStatus, error?: Error) => void,
+  syncState: { status: SyncStatus; error: Error | null },
 });
 ```
 - `setThemeId` delegates to `ThemeContext.setThemeId` to keep providers in sync.
 - `applyPreset` updates all relevant IDs and stores `presetId`.
 - `reset` returns to defaults (pulling from registries and the active theme suggestions).
+- `unlockItem(s)` mutate the entitlement set once purchases or rewards complete.
 
-### Storage
+### Persistence & Sync
 - Local persistence mirrors the existing theme storage (`fgb.customization`).
-- Storage payload roughly matches `CustomizationState`.
-- When the theme registry changes (IDs removed), the provider falls back to defaults gracefully.
+- Remote persistence (when the session adapter is Firebase) stores the payload at `players/{uid}/settings/customization` with a server `updatedAt` timestamp.
+- `AppStateProvider` hydrates the provider after auth and debounces writes via `sessionService.upsertCustomizationConfig()`.
+- Sync status is exposed through `syncState` (`idle`, `syncing`, `synced`, `offline`, `error`) so UI surfaces can show progress and failures.
+- When the theme registry changes (IDs removed), the provider falls back to defaults gracefully before persisting.
+- Unlock arrays travel alongside the state so premium ownership is rehydrated consistently across devices.
 
 ### Helper Hooks
 - `useCustomization()` – primary API returning `{ state, actions }`.
 - `useCustomizationTokens()` – merges theme tokens with skin tokens for components that need a single resolved object (`{ theme, cards, table, pieces, backdrop, accessibility }`).
+- `useCustomization()` also exposes `unlocks`, `unlockItem`, and `unlockItems` for monetisation flows.
 
 ## UI Integration Targets
 - `Card`, `Hand`, `DrawPile`, `DiscardPile`, and `TableLayout` will consume tokens via `useCustomizationTokens()` rather than hardcoding `theme.cards`.
 - `AppShell` and `HubMenu` will apply backdrop or shell-level tweaks (e.g., backgrounds from `backdropId`).
 - Login and lobby screens will use accessibility flags (large text, high contrast once available).
+- The customization panel surfaces entitlement status and unlock CTAs for premium content.
 
 ## Testing Strategy
 - Add unit tests for `CustomizationProvider` covering defaults, persistence, preset application, and delegation to `ThemeContext`.
@@ -136,6 +156,7 @@ const CustomizationContext = createContext({
 1. **Phase 1 (Design & Foundations)** – This document, finalize data model, confirm registry layout (✅ once this doc lands).
 2. **Phase 2 (Provider & Tokens)** – Implement provider, registries, and helper hooks; migrate core components to consume customization tokens.
 3. **Phase 3 (Player UI & Docs)** – Build customization hub panel, expand tests, update docs + CODEx, prepare staging vs production checklist.
+4. **Phase 4 (Monetisation Readiness)** – Annotate registries with entitlements, persist unlocks, surface locked states/CTAs in the UI.
 
 ## Hub Customization Panel
 

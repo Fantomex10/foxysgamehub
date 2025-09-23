@@ -1,5 +1,9 @@
-export const tableSkins = {
-  'emerald-club': {
+import { createRegistry } from '../../lib/registry.js';
+
+const tableSkinRegistry = createRegistry({ name: 'table skin' });
+
+const baseTableSkins = [
+  {
     id: 'emerald-club',
     name: 'Emerald Club',
     description: 'Deep green felt with cool blue rails.',
@@ -11,10 +15,15 @@ export const tableSkins = {
       text: '#f8fafc',
     },
   },
-  'aurora-veil': {
+  {
     id: 'aurora-veil',
     name: 'Aurora Veil',
     description: 'Cosmic indigo felt with magenta trim.',
+    entitlement: {
+      id: 'skin.table.aurora-veil',
+      price: 350,
+      currency: 'chips',
+    },
     tokens: {
       felt: '#1b184f',
       border: 'rgba(168,85,247,0.38)',
@@ -23,10 +32,15 @@ export const tableSkins = {
       text: '#fce7f3',
     },
   },
-  'summit-felt': {
+  {
     id: 'summit-felt',
     name: 'Summit Felt',
     description: 'Frosted teal felt with crisp glacier trim.',
+    entitlement: {
+      id: 'skin.table.summit-felt',
+      price: 350,
+      currency: 'chips',
+    },
     tokens: {
       felt: '#164e63',
       border: 'rgba(14,165,233,0.38)',
@@ -35,10 +49,16 @@ export const tableSkins = {
       text: '#ecfeff',
     },
   },
-};
+];
 
-export const defaultTableSkinId = 'emerald-club';
+tableSkinRegistry.registerMany(baseTableSkins);
 
-export const listTableSkins = () => Object.values(tableSkins);
+export const registerTableSkin = (skin, options) => tableSkinRegistry.register(skin, options);
 
-export const getTableSkinById = (id) => tableSkins[id] ?? tableSkins[defaultTableSkinId];
+export const unregisterTableSkin = (id) => tableSkinRegistry.unregister(id);
+
+export const listTableSkins = () => tableSkinRegistry.list();
+
+export const getTableSkinById = (id) => tableSkinRegistry.get(id);
+
+export const getDefaultTableSkinId = () => tableSkinRegistry.getDefaultKey();
