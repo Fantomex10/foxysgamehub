@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { useTheme } from '../ui/ThemeContext.jsx';
+import { useCustomizationTokens } from '../customization/useCustomization.js';
+import { scaleFont } from '../ui/typography.js';
 
 const HubMenu = ({
   onCreate,
@@ -9,7 +10,9 @@ const HubMenu = ({
   onDailyDraw,
 }) => {
   const [modalMessage, setModalMessage] = useState(null);
-  const { theme } = useTheme();
+  const { theme, accessibility } = useCustomizationTokens();
+  const fontScale = accessibility?.fontScale ?? 1;
+  const prefersReducedMotion = accessibility?.prefersReducedMotion ?? false;
 
   const handle = (callback, fallbackMessage) => {
     if (typeof callback === 'function') {
@@ -47,10 +50,10 @@ const HubMenu = ({
     border: 'none',
     background: theme.buttons.primaryBg,
     color: theme.buttons.primaryText,
-    fontSize: '18px',
+    fontSize: scaleFont('18px', fontScale),
     fontWeight: 700,
     cursor: 'pointer',
-    transition: 'transform 0.2s ease, opacity 0.2s ease',
+    transition: prefersReducedMotion ? 'none' : 'transform 0.2s ease, opacity 0.2s ease',
   };
 
   const accentButton = {
@@ -59,7 +62,7 @@ const HubMenu = ({
     border: `1px solid ${theme.buttons.subtleBorder}`,
     background: theme.buttons.ghostBg,
     color: theme.colors.textSecondary,
-    fontSize: '18px',
+    fontSize: scaleFont('18px', fontScale),
     fontWeight: 600,
     cursor: 'pointer',
   };
@@ -70,7 +73,7 @@ const HubMenu = ({
     border: `1px solid ${theme.buttons.subtleBorder}`,
     background: theme.buttons.subtleBg,
     color: theme.buttons.subtleText,
-    fontSize: '17px',
+    fontSize: scaleFont('17px', fontScale),
     fontWeight: 600,
     cursor: 'pointer',
   };
@@ -149,8 +152,8 @@ const HubMenu = ({
       {modalMessage && (
         <div style={overlayStyle}>
           <div style={overlayContentStyle}>
-            <p style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>Coming soon</p>
-            <p style={{ margin: 0, fontSize: '15px', color: theme.colors.textSecondary }}>{modalMessage}</p>
+            <p style={{ margin: 0, fontSize: scaleFont('18px', fontScale), fontWeight: 600 }}>Coming soon</p>
+            <p style={{ margin: 0, fontSize: scaleFont('15px', fontScale), color: theme.colors.textSecondary }}>{modalMessage}</p>
             <button
               type="button"
               onClick={() => setModalMessage(null)}
@@ -166,3 +169,4 @@ const HubMenu = ({
 };
 
 export default HubMenu;
+

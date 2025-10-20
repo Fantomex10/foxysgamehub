@@ -1,6 +1,8 @@
+import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { ThemeProvider, useTheme } from '../src/ui/ThemeContext.jsx';
+import { ThemeProvider } from '../src/ui/ThemeContext.jsx';
+import { useTheme } from '../src/ui/useTheme.js';
 import { defaultThemeId, themes } from '../src/ui/theme.js';
 
 const wrapper = ({ children }) => (

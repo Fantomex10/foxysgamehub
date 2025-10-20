@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+# Exit early when hooks are explicitly skipped.
+if [ "${SKIP_HOOKS:-0}" = "1" ]; then
+  echo "Skipping pre-push hook because SKIP_HOOKS=1"
+  exit 0
+fi
+
+set -euo pipefail
+
+echo "Running lint (pre-push)..."
+npm run lint
+
+echo "Running tests (pre-push)..."
+npm run test

@@ -1,14 +1,23 @@
 import { useMemo } from 'react';
 import AppShell from '../../components/AppShell.jsx';
-import { useTheme } from '../../ui/ThemeContext.jsx';
-import { useAppState } from '../context/AppStateContext.jsx';
+import { useTheme } from '../../ui/useTheme.js';
+import { useAppState } from '../context/useAppState.js';
+import { useCustomizationTokens } from '../../customization/useCustomization.js';
+import { scaleFont } from '../../ui/typography.js';
+import {
+  getRoomTitle,
+  getRoomCode,
+  getDisplayName,
+  getBalancePlaceholder,
+  getLocalTimePlaceholder,
+} from '../../ui/textFallbacks.js';
 
-const SectionHeading = ({ theme, title }) => (
+const SectionHeading = ({ theme, title, fontScale }) => (
   <div>
     <h2
       style={{
         margin: 0,
-        fontSize: '20px',
+        fontSize: scaleFont('20px', fontScale),
         color: theme.colors.textPrimary,
       }}
     >
@@ -23,11 +32,11 @@ const SectionHeading = ({ theme, title }) => (
   </div>
 );
 
-const renderMenuSections = (theme, sections, createButtonStyle) => (
+const renderMenuSections = (theme, sections, createButtonStyle, fontScale) => (
   <nav style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
     {sections.map((section) => (
       <div key={section.title} style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-        <SectionHeading theme={theme} title={section.title} />
+        <SectionHeading theme={theme} title={section.title} fontScale={fontScale} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
           {section.items.map((item) => {
             const buttonStyle = createButtonStyle(item.tone);
@@ -53,20 +62,20 @@ const renderMenuSections = (theme, sections, createButtonStyle) => (
   </nav>
 );
 
-const renderProfileSections = (theme, sections) => (
+const renderProfileSections = (theme, sections, fontScale) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-    <h2 style={{ margin: 0, fontSize: '20px', color: theme.colors.textPrimary }}>Player profile</h2>
+    <h2 style={{ margin: 0, fontSize: scaleFont('20px', fontScale), color: theme.colors.textPrimary }}>Player profile</h2>
     <div
       style={{
         height: '1px',
         background: `linear-gradient(to right, transparent, ${theme.colors.borderStrong}, transparent)`,
       }}
     />
-    {sections.map((entry) => {
+    {sections.map((entry, index) => {
       if (entry.type === 'divider') {
         return (
           <div
-            key={entry.key ?? entry.label ?? Math.random()}
+            key={entry.key ?? entry.label ?? `profile-divider-${index}`}
             style={{
               height: '1px',
               background: `linear-gradient(to right, transparent, ${theme.colors.borderSoft}, transparent)`,
@@ -81,7 +90,7 @@ const renderProfileSections = (theme, sections) => (
               style={{
                 margin: 0,
                 color: theme.colors.textMuted,
-                fontSize: '12px',
+                fontSize: scaleFont('12px', fontScale),
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
               }}
@@ -92,7 +101,7 @@ const renderProfileSections = (theme, sections) => (
               style={{
                 margin: '4px 0 0',
                 color: theme.colors.textPrimary,
-                fontSize: '18px',
+                fontSize: scaleFont('18px', fontScale),
                 fontWeight: 700,
               }}
             >
@@ -107,7 +116,7 @@ const renderProfileSections = (theme, sections) => (
             style={{
               margin: 0,
               color: theme.colors.textMuted,
-              fontSize: '13px',
+              fontSize: scaleFont('13px', fontScale),
             }}
           >
             {entry.label}
@@ -151,35 +160,29 @@ export const AppLayout = ({
     availablePhotonAdapters,
     updateServiceConfig,
   } = useAppState();
-  const { theme, availableThemes, themeId, setThemeId } = useTheme();
+  const { availableThemes, themeId, setThemeId } = useTheme();
+  const { theme, accessibility } = useCustomizationTokens();
+  const fontScale = accessibility?.fontScale ?? 1;
+  const prefersReducedMotion = accessibility?.prefersReducedMotion ?? false;
 
   const defaultMenuSections = useMemo(
-    () => [
-      {
-        title: 'Game menu',
-        items: [
-          { label: 'Game options', onClick: () => {}, tone: 'ghost' },
-          { label: 'Settings', onClick: () => {}, tone: 'ghost' },
-          { label: 'Support', onClick: () => {}, tone: 'ghost' },
-        ],
-      },
-    ],
+    () => [],
     [],
   );
 
   const defaultProfileSections = useMemo(
     () => [
-      { type: 'highlight', label: 'Lobby', value: gameDisplayName },
-      { label: 'Room code', value: state.roomId ?? '—' },
-      { label: 'Display name', value: playerDisplayName },
-      { label: 'Balance', value: '—' },
-      { label: 'Local time', value: '--:--' },
+      { type: 'highlight', label: 'Lobby', value: getRoomTitle(state.roomName, gameDisplayName) },
+      { label: 'Room code', value: getRoomCode(state.roomId) },
+      { label: 'Display name', value: getDisplayName(playerDisplayName) },
+      { label: 'Balance', value: getBalancePlaceholder() },
+      { label: 'Local time', value: getLocalTimePlaceholder() },
       { type: 'divider', key: 'divider-1' },
       { label: 'Stats', value: 'Coming soon' },
       { label: 'Unlocked items', value: 'No items unlocked yet.' },
       { label: 'Friends', value: 'Invite friends to share the table.' },
     ],
-    [gameDisplayName, playerDisplayName, state.roomId],
+    [gameDisplayName, playerDisplayName, state.roomId, state.roomName],
   );
 
   const developerMenuSection = useMemo(() => {
@@ -256,6 +259,8 @@ export const AppLayout = ({
 
   const finalProfileSections = profileSections ?? defaultProfileSections;
 
+  const interactiveTransition = prefersReducedMotion ? 'none' : 'background 0.2s ease, transform 0.2s ease';
+
   const createButtonStyle = (tone = 'default') => {
     if (tone === 'primary') {
       return {
@@ -264,11 +269,11 @@ export const AppLayout = ({
         border: `1px solid ${theme.buttons.primaryBorder}`,
         background: theme.buttons.primaryBg,
         color: theme.buttons.primaryText,
-        fontSize: '14px',
+        fontSize: scaleFont('14px', fontScale),
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        transition: 'background 0.2s ease, transform 0.2s ease',
+        transition: interactiveTransition,
       };
     }
     if (tone === 'danger') {
@@ -278,11 +283,11 @@ export const AppLayout = ({
         border: `1px solid ${theme.buttons.dangerBorder}`,
         background: theme.buttons.dangerBg,
         color: theme.buttons.dangerText,
-        fontSize: '14px',
+        fontSize: scaleFont('14px', fontScale),
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        transition: 'background 0.2s ease, transform 0.2s ease',
+        transition: interactiveTransition,
       };
     }
     if (tone === 'ghost') {
@@ -292,11 +297,11 @@ export const AppLayout = ({
         border: `1px solid ${theme.buttons.subtleBorder}`,
         background: theme.buttons.ghostBg,
         color: theme.buttons.ghostText,
-        fontSize: '14px',
+        fontSize: scaleFont('14px', fontScale),
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        transition: 'background 0.2s ease, transform 0.2s ease',
+        transition: interactiveTransition,
       };
     }
     return {
@@ -305,20 +310,20 @@ export const AppLayout = ({
       border: `1px solid ${theme.buttons.subtleBorder}`,
       background: theme.buttons.subtleBg,
       color: theme.buttons.subtleText,
-      fontSize: '14px',
+      fontSize: scaleFont('14px', fontScale),
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      transition: 'background 0.2s ease, transform 0.2s ease',
+      transition: interactiveTransition,
     };
   };
 
   const leftPanelNode = finalMenuSections && finalMenuSections.length > 0
-    ? renderMenuSections(theme, finalMenuSections, createButtonStyle)
+    ? renderMenuSections(theme, finalMenuSections, createButtonStyle, fontScale)
     : null;
 
   const rightPanelNode = finalProfileSections && finalProfileSections.length > 0
-    ? renderProfileSections(theme, finalProfileSections)
+    ? renderProfileSections(theme, finalProfileSections, fontScale)
     : null;
 
   if (!useShell) {

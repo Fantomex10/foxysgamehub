@@ -36,10 +36,11 @@ export const crazyEightsEngine = createGameEngine({
   modules: {
     table: {
       getProfileSections: ({ state, gameDisplayName, playerDisplayName }) => {
-        const activeSuit = state.activeSuit ?? state.discardPile?.[state.discardPile.length - 1]?.suit ?? '—';
+        const lastDiscardSuit = state.discardPile?.[state.discardPile.length - 1]?.suit;
+        const activeSuit = state.activeSuit ?? lastDiscardSuit ?? 'N/A';
         return [
           { type: 'highlight', label: 'Lobby', value: state.roomName ?? gameDisplayName },
-          { label: 'Room code', value: state.roomId ?? '—' },
+          { label: 'Room code', value: state.roomId ?? 'N/A' },
           { label: 'Active suit', value: activeSuit.toUpperCase?.() ?? String(activeSuit) },
           { label: 'Cards remaining', value: String(state.drawPile?.length ?? 0) },
           { type: 'divider', key: 'crazy-eights-divider' },
@@ -54,3 +55,4 @@ export const crazyEightsEngine = createGameEngine({
   reducer: roomReducer,
   getBotAction: chooseBotMove,
 });
+

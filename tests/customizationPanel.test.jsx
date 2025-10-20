@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import CustomizationPanel from '../src/components/CustomizationPanel.jsx';
@@ -56,11 +57,11 @@ describe('CustomizationPanel', () => {
   it('activates preset buttons', () => {
     renderPanel();
 
-    const auroraButton = screen.getByRole('button', { name: /Aurora Bloom/i });
+    const [auroraButton] = screen.getAllByRole('button', { name: /Aurora Bloom/i });
 
     fireEvent.click(auroraButton);
 
-    expect(auroraButton).toHaveAttribute('data-active', 'true');
+    expect(auroraButton.getAttribute('data-active')).toBe('true');
   });
 
   it('toggles accessibility options', () => {
@@ -70,6 +71,6 @@ describe('CustomizationPanel', () => {
 
     fireEvent.click(highContrast);
 
-    expect(highContrast).toHaveAttribute('data-active', 'true');
+    expect(highContrast.getAttribute('data-active')).toBe('true');
   });
 });

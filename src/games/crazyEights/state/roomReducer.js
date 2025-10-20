@@ -203,7 +203,7 @@ export const roomReducer = (state, action) => {
         currentTurn: null,
         activeSuit: null,
         history: [],
-        banner: 'Waiting for players to ready up…',
+        banner: 'Waiting for players to ready up...',
         botCounter,
         roomSettings: config,
       };
@@ -361,7 +361,7 @@ export const roomReducer = (state, action) => {
           maxPlayers: seatLimit,
         },
         currentTurn: null,
-        banner: 'Waiting for players to ready up…',
+        banner: 'Waiting for players to ready up...',
         hands: nextHands,
       };
     }
@@ -612,15 +612,72 @@ export const roomReducer = (state, action) => {
         currentTurn: null,
         activeSuit: null,
         history: [],
-        banner: 'Waiting for players to ready up…',
+        banner: 'Waiting for players to ready up...',
         players: state.players.map((player) => prepareSeatedPlayer(player)),
         spectators: (state.spectators ?? []).map((spectator) => prepareSpectator(spectator)),
       };
     }
 
     case 'RESET_SESSION': {
-      const next = createInitialState({ userId: state.userId, userName: state.userName });
-      return { ...next, players: [], spectators: [] };
+      const base = createInitialState({ userId: state.userId, userName: state.userName });
+      const preservedSettings = state.roomSettings
+        ? { ...base.roomSettings, ...state.roomSettings }
+        : base.roomSettings;
+      const trimmedName = base.userName?.trim() ?? '';
+      const roomId = state.roomId ?? makeRoomCode();
+      const roomName = preservedSettings.roomName?.trim() || state.roomName || `Room ${roomId}`;
+      const desiredHostId = state.hostId ?? base.userId;
+
+      let players = (state.players ?? []).map((player) => prepareSeatedPlayer({
+        ...player,
+        isHost: player.id === desiredHostId,
+      }));
+
+      if (!players.length && trimmedName) {
+        players = [
+          prepareSeatedPlayer({
+            id: base.userId,
+            name: trimmedName,
+            isHost: true,
+            isBot: false,
+          }),
+        ];
+      } else if (players.length && !players.some((player) => player.id === desiredHostId) && trimmedName) {
+        players = [
+          prepareSeatedPlayer({
+            id: base.userId,
+            name: trimmedName,
+            isHost: true,
+            isBot: false,
+          }),
+          ...players,
+        ];
+      }
+
+      const spectators = (state.spectators ?? []).map((spectator) => prepareSpectator(spectator));
+      const hostId = players.length ? players.find((player) => player.isHost)?.id ?? players[0].id : null;
+
+      return {
+        ...base,
+        phase: players.length ? 'roomLobby' : base.phase,
+        roomId,
+        roomName: players.length ? roomName : base.roomName,
+        hostId,
+        players,
+        spectators,
+        roomSettings: {
+          ...preservedSettings,
+          roomName,
+        },
+        botCounter: state.botCounter ?? base.botCounter,
+        banner: players.length ? 'Waiting for players to ready up...' : base.banner,
+        hands: {},
+        drawPile: [],
+        discardPile: [],
+        currentTurn: null,
+        activeSuit: null,
+        history: [],
+      };
     }
 
     default:

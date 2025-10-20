@@ -1,47 +1,18 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { useTheme } from '../ui/ThemeContext.jsx';
-import { defaultThemeId, getThemeById } from '../ui/theme.js';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTheme } from '../ui/useTheme.js';
+import { CustomizationContext } from './customizationContext.js';
 import {
-  defaultCardSkinId,
-  getCardSkinById,
-  listCardSkins,
-} from './skins/cards.js';
-import {
-  defaultTableSkinId,
-  getTableSkinById,
-  listTableSkins,
-} from './skins/table.js';
-import {
-  defaultPieceSkinId,
-  getPieceSkinById,
-  listPieceSkins,
-} from './skins/pieces.js';
-import {
-  defaultBackdropId,
-  getBackdropById,
-  listBackdrops,
-} from './backdrops.js';
-import {
-  defaultPresetId,
-  getPresetById,
-  listPresets,
-} from './presets.js';
+  createSuggestedState,
+  defaultAccessibility,
+  sanitiseState,
+} from './customizationState.js';
+import { listCardSkins } from './skins/cards.js';
+import { listTableSkins } from './skins/table.js';
+import { listPieceSkins } from './skins/pieces.js';
+import { listBackdrops } from './backdrops.js';
+import { getPresetById, listPresets } from './presets.js';
 
 const STORAGE_KEY = 'fgb.customization';
-
-const CustomizationContext = createContext(null);
-
-const defaultAccessibility = {
-  highContrast: false,
-  reducedMotion: false,
-  largeText: false,
-};
-
-const ensureAccessibility = (value = {}) => ({
-  highContrast: Boolean(value.highContrast),
-  reducedMotion: Boolean(value.reducedMotion),
-  largeText: Boolean(value.largeText),
-});
 
 const readStoredState = () => {
   if (typeof window === 'undefined' || !window.localStorage) {
@@ -67,42 +38,6 @@ const writeStoredState = (state) => {
   }
 };
 
-const createSuggestedState = (themeId) => {
-  const theme = getThemeById(themeId ?? defaultThemeId);
-  const suggestions = theme.customization ?? {};
-  return {
-    themeId: theme.id,
-    presetId: suggestions.suggestedPresetId ?? null,
-    cardSkinId: suggestions.suggestedCardSkinId ?? defaultCardSkinId,
-    tableSkinId: suggestions.suggestedTableSkinId ?? defaultTableSkinId,
-    pieceSkinId: suggestions.suggestedPieceSkinId ?? defaultPieceSkinId,
-    backdropId: suggestions.suggestedBackdropId ?? defaultBackdropId,
-    accessibility: ensureAccessibility(suggestions.accessibility ?? defaultAccessibility),
-  };
-};
-
-const sanitiseState = (input = {}, fallbackThemeId) => {
-  const theme = getThemeById(input.themeId ?? fallbackThemeId ?? defaultThemeId);
-  const themeId = theme.id;
-  const cardSkinId = getCardSkinById(input.cardSkinId)?.id ?? defaultCardSkinId;
-  const tableSkinId = getTableSkinById(input.tableSkinId)?.id ?? defaultTableSkinId;
-  const pieceSkinId = getPieceSkinById(input.pieceSkinId)?.id ?? defaultPieceSkinId;
-  const backdropId = getBackdropById(input.backdropId)?.id ?? defaultBackdropId;
-
-  const preset = input.presetId ? getPresetById(input.presetId) : null;
-  const presetId = preset && (!preset.themeId || preset.themeId === themeId) ? preset.id : null;
-
-  return {
-    themeId,
-    presetId,
-    cardSkinId,
-    tableSkinId,
-    pieceSkinId,
-    backdropId,
-    accessibility: ensureAccessibility(input.accessibility ?? defaultAccessibility),
-  };
-};
-
 export const CustomizationProvider = ({ children }) => {
   const {
     themeId: activeThemeId,
@@ -112,9 +47,9 @@ export const CustomizationProvider = ({ children }) => {
   const initialState = useMemo(() => {
     const stored = readStoredState();
     if (stored) {
-      return sanitiseState(stored, activeThemeId ?? defaultThemeId);
+      return sanitiseState(stored, activeThemeId);
     }
-    return sanitiseState(createSuggestedState(activeThemeId ?? defaultThemeId), activeThemeId);
+    return sanitiseState(createSuggestedState(activeThemeId), activeThemeId);
   }, [activeThemeId]);
 
   const [state, setState] = useState(initialState);
@@ -122,6 +57,22 @@ export const CustomizationProvider = ({ children }) => {
   useEffect(() => {
     writeStoredState(state);
   }, [state]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return () => {};
+    }
+    const root = document.documentElement;
+    const accessibility = state.accessibility ?? defaultAccessibility;
+
+    root.classList.toggle('fgb-high-contrast', Boolean(accessibility.highContrast));
+    root.classList.toggle('fgb-large-text', Boolean(accessibility.largeText));
+    root.classList.toggle('fgb-reduced-motion', Boolean(accessibility.reducedMotion));
+
+    return () => {
+      root.classList.remove('fgb-high-contrast', 'fgb-large-text', 'fgb-reduced-motion');
+    };
+  }, [state.accessibility]);
 
   useEffect(() => {
     if (!activeThemeId) {
@@ -189,7 +140,6 @@ export const CustomizationProvider = ({ children }) => {
   const applyPreset = useCallback((presetId) => {
     const preset = getPresetById(presetId);
     if (!preset) return;
-    const targetThemeId = preset.themeId ?? state.themeId ?? defaultThemeId;
     if (preset.themeId && preset.themeId !== state.themeId) {
       setThemeFromContext(preset.themeId);
     }
@@ -248,67 +198,3 @@ export const CustomizationProvider = ({ children }) => {
     </CustomizationContext.Provider>
   );
 };
-
-export const useCustomization = () => {
-  const context = useContext(CustomizationContext);
-  if (!context) {
-    throw new Error('useCustomization must be used within a CustomizationProvider');
-  }
-  return context;
-};
-
-export const useCustomizationTokens = () => {
-  const { state } = useCustomization();
-  const { theme } = useTheme();
-
-  const cardSkin = useMemo(
-    () => getCardSkinById(state.cardSkinId),
-    [state.cardSkinId],
-  );
-
-  const tableSkin = useMemo(
-    () => getTableSkinById(state.tableSkinId),
-    [state.tableSkinId],
-  );
-
-  const pieceSkin = useMemo(
-    () => getPieceSkinById(state.pieceSkinId),
-    [state.pieceSkinId],
-  );
-
-  const backdrop = useMemo(
-    () => getBackdropById(state.backdropId),
-    [state.backdropId],
-  );
-
-  const cards = useMemo(
-    () => ({
-      ...(theme.cards ?? {}),
-      ...(cardSkin.tokens ?? {}),
-    }),
-    [theme, cardSkin],
-  );
-
-  const table = useMemo(
-    () => ({
-      ...(theme.table ?? {}),
-      ...(tableSkin.tokens ?? {}),
-    }),
-    [theme, tableSkin],
-  );
-
-  return {
-    theme,
-    cards,
-    cardSkin,
-    table,
-    tableSkin,
-    pieces: pieceSkin.tokens ?? {},
-    pieceSkin,
-    backdrop,
-    accessibility: state.accessibility,
-    presetId: state.presetId,
-  };
-};
-
-export const defaultPreset = getPresetById(defaultPresetId);

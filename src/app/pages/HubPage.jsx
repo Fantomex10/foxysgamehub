@@ -2,7 +2,7 @@ import HubMenu from '../../components/HubMenu.jsx';
 import CustomizationPanel from '../../components/CustomizationPanel.jsx';
 import { AppLayout } from '../components/AppLayout.jsx';
 import { APP_PHASES } from '../constants.js';
-import { useAppState } from '../context/AppStateContext.jsx';
+import { useAppState } from '../context/useAppState.js';
 
 export const HubPage = () => {
   const { setAppPhase } = useAppState();

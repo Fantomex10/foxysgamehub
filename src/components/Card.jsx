@@ -1,8 +1,11 @@
 import { SUIT_COLORS, SUIT_ICONS } from '../lib/cards.js';
-import { useCustomizationTokens } from '../customization/CustomizationContext.jsx';
+import { useCustomizationTokens } from '../customization/useCustomization.js';
+import { scaleFont } from '../ui/typography.js';
 
 const Card = ({ card, onClick, disabled = false }) => {
-  const { theme, cards } = useCustomizationTokens();
+  const { theme, cards, accessibility } = useCustomizationTokens();
+  const fontScale = accessibility?.fontScale ?? 1;
+  const prefersReducedMotion = accessibility?.prefersReducedMotion ?? false;
 
   const fallbackFace = 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.85))';
 
@@ -20,12 +23,12 @@ const Card = ({ card, onClick, disabled = false }) => {
 
   const smallGlyphStyle = {
     fontWeight: 600,
-    fontSize: '18px',
+    fontSize: scaleFont('18px', fontScale),
     color: cards.text ?? theme.colors.textPrimary,
   };
 
   const suitStyle = {
-    fontSize: '48px',
+    fontSize: scaleFont('48px', fontScale),
     fontWeight: 700,
     lineHeight: 1,
     color: cards.accent ?? theme.colors.accentPrimary,
@@ -34,13 +37,22 @@ const Card = ({ card, onClick, disabled = false }) => {
   if (!card) {
     return (
       <div style={{ ...baseStyle, alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
-        <span style={{ fontSize: '14px', color: theme.colors.textMuted }}>Empty</span>
+        <span style={{ fontSize: scaleFont('14px', fontScale), color: theme.colors.textMuted }}>Empty</span>
       </div>
     );
   }
 
   const accent = SUIT_COLORS[card.suit];
   const glyph = SUIT_ICONS[card.suit];
+
+  const handlePress = (event) => {
+    if (disabled || prefersReducedMotion) return;
+    event.currentTarget.style.transform = 'translateY(2px) scale(0.98)';
+  };
+
+  const handleReset = (event) => {
+    event.currentTarget.style.transform = 'none';
+  };
 
   return (
     <button
@@ -50,19 +62,12 @@ const Card = ({ card, onClick, disabled = false }) => {
       style={{
         ...baseStyle,
         cursor: disabled ? 'not-allowed' : 'pointer',
-        transition: 'transform 120ms ease',
+        transition: prefersReducedMotion ? 'none' : 'transform 120ms ease',
         background: cards.face ?? fallbackFace,
       }}
-      onMouseDown={(event) => {
-        if (disabled) return;
-        event.currentTarget.style.transform = 'translateY(2px) scale(0.98)';
-      }}
-      onMouseUp={(event) => {
-        event.currentTarget.style.transform = 'none';
-      }}
-      onMouseLeave={(event) => {
-        event.currentTarget.style.transform = 'none';
-      }}
+      onMouseDown={handlePress}
+      onMouseUp={handleReset}
+      onMouseLeave={handleReset}
     >
       <span style={{ ...smallGlyphStyle, color: accent }}>{card.rank}</span>
       <span style={{ ...suitStyle, color: accent }}>{glyph}</span>
@@ -72,3 +77,4 @@ const Card = ({ card, onClick, disabled = false }) => {
 };
 
 export default Card;
+

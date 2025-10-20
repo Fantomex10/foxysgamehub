@@ -1,7 +1,7 @@
 import LoginHub from '../../components/LoginHub.jsx';
 import { AppLayout } from '../components/AppLayout.jsx';
 import { APP_PHASES } from '../constants.js';
-import { useAppState } from '../context/AppStateContext.jsx';
+import { useAppState } from '../context/useAppState.js';
 
 export const LoginPage = () => {
   const { authUser, state, setAppPhase, roomActions } = useAppState();

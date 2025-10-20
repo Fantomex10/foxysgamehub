@@ -1,7 +1,7 @@
 import JoinLobbyList from '../../components/JoinLobbyList.jsx';
 import { AppLayout } from '../components/AppLayout.jsx';
 import { APP_PHASES } from '../constants.js';
-import { useAppState } from '../context/AppStateContext.jsx';
+import { useAppState } from '../context/useAppState.js';
 
 export const JoinLobbyPage = () => {
   const { availableRooms, roomActions, setAppPhase } = useAppState();

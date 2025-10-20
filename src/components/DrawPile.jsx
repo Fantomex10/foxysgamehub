@@ -1,7 +1,9 @@
-import { useCustomizationTokens } from '../customization/CustomizationContext.jsx';
+import { useCustomizationTokens } from '../customization/useCustomization.js';
+import { scaleFont } from '../ui/typography.js';
 
 const DrawPile = ({ remaining, onDraw, disabled = false }) => {
-  const { theme, cards } = useCustomizationTokens();
+  const { theme, cards, accessibility } = useCustomizationTokens();
+  const fontScale = accessibility?.fontScale ?? 1;
   const isDisabled = disabled || remaining === 0;
 
   const cardStyle = {
@@ -50,7 +52,7 @@ const DrawPile = ({ remaining, onDraw, disabled = false }) => {
           bottom: -28,
           left: '50%',
           transform: 'translateX(-50%)',
-          fontSize: '12px',
+          fontSize: scaleFont('12px', fontScale),
           color: theme.colors.textMuted,
         }}
       >
@@ -61,3 +63,4 @@ const DrawPile = ({ remaining, onDraw, disabled = false }) => {
 };
 
 export default DrawPile;
+

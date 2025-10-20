@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import useMediaQuery from '../../../hooks/useMediaQuery.js';
-import { useTheme } from '../../../ui/ThemeContext.jsx';
+import { useTheme } from '../../../ui/useTheme.js';
 import Hand from '../../../components/Hand.jsx';
 import TableLayout from '../../../components/TableLayout.jsx';
 import { formatCard } from '../utils.js';
@@ -149,7 +149,7 @@ const HeartsTable = ({
               >
                 <div style={{ fontWeight: 600, marginBottom: '6px' }}>{player.name}</div>
                 <div style={{ color: theme.colors.textMuted, fontSize: '14px' }}>
-                  {card ? formatCard(card) : '—'}
+                  {card ? formatCard(card) : 'No card yet'}
                 </div>
                 {isCurrent && (
                   <div
@@ -197,7 +197,7 @@ const HeartsTable = ({
             </h2>
             <Hand cards={hand} onPlayCard={onPlayCard} disabled={handLocked} />
             <div style={{ marginTop: '8px', fontSize: '12px', color: theme.colors.textMuted }}>
-              {handLocked ? 'Waiting for your turn…' : 'Select a legal card to play.'}
+              {handLocked ? 'Waiting for your turn...' : 'Select a legal card to play.'}
             </div>
           </>
         )}
@@ -207,3 +207,4 @@ const HeartsTable = ({
 };
 
 export default HeartsTable;
+

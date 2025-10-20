@@ -2,10 +2,10 @@ export const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
 export const RANKS = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
 
 export const SUIT_ICONS = {
-  hearts: '♥',
-  diamonds: '♦',
-  clubs: '♣',
-  spades: '♠',
+  hearts: '\u2665',
+  diamonds: '\u2666',
+  clubs: '\u2663',
+  spades: '\u2660',
 };
 
 export const SUIT_COLORS = {
@@ -36,7 +36,7 @@ export const createDeck = (deckCount = 1) => {
 
 export const shuffle = (cards) => {
   const deck = [...cards];
-  for (let i = deck.length - 1; i > 0; i--) {
+  for (let i = deck.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }

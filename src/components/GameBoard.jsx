@@ -1,11 +1,13 @@
 import useMediaQuery from '../hooks/useMediaQuery.js';
-import { useCustomizationTokens } from '../customization/CustomizationContext.jsx';
+import { useCustomizationTokens } from '../customization/useCustomization.js';
+import { scaleFont } from '../ui/typography.js';
 import DrawPile from './DrawPile.jsx';
 import DiscardPile from './DiscardPile.jsx';
 import Hand from './Hand.jsx';
 import TableLayout from './TableLayout.jsx';
+import { getCurrentTurnPlaceholder } from '../ui/textFallbacks.js';
 
-const prettySuit = (suit) => (suit ? suit.charAt(0).toUpperCase() + suit.slice(1) : '—');
+const prettySuit = (suit) => (suit ? suit.charAt(0).toUpperCase() + suit.slice(1) : 'Any suit');
 
 const GameBoard = ({
   roomId,
@@ -23,7 +25,8 @@ const GameBoard = ({
   onPlayCard,
   onDrawCard,
 }) => {
-  const { theme, table } = useCustomizationTokens();
+  const { theme, table, accessibility } = useCustomizationTokens();
+  const fontScale = accessibility?.fontScale ?? 1;
   const isCompact = useMediaQuery('(max-width: 900px)');
   const isSpectator = !(Array.isArray(players) && players.some((player) => player.id === userId));
   const isMyTurn = !isSpectator && currentTurn === userId && phase === 'playing';
@@ -72,14 +75,14 @@ const GameBoard = ({
       background: active ? activeFill : 'rgba(148,163,184,0.08)',
       border: `1px solid ${isSelf ? theme.colors.accentPrimary : 'transparent'}`,
       color: theme.colors.textPrimary,
-      fontSize: '14px',
+      fontSize: scaleFont('14px', fontScale),
     };
   };
 
   const summaryBlockStyle = {
     textAlign: isCompact ? 'left' : 'center',
     color: theme.colors.textMuted,
-    fontSize: '13px',
+    fontSize: scaleFont('13px', fontScale),
   };
 
   const spectatorNoticeStyle = {
@@ -88,7 +91,7 @@ const GameBoard = ({
     border: `1px solid ${theme.colors.border}`,
     background: theme.colors.surfaceMuted,
     color: theme.colors.textSecondary,
-    fontSize: '13px',
+    fontSize: scaleFont('13px', fontScale),
     textAlign: 'center',
   };
 
@@ -96,7 +99,7 @@ const GameBoard = ({
     <TableLayout title={roomName ?? `Room ${roomId}`}>
       <section style={containerStyle}>
         <div style={{ ...panelStyle, width: isCompact ? '100%' : 'auto' }}>
-          <h3 style={{ margin: 0, fontSize: '16px', color: theme.colors.textPrimary }}>Turn order</h3>
+          <h3 style={{ margin: 0, fontSize: scaleFont('16px', fontScale), color: theme.colors.textPrimary }}>Turn order</h3>
           {players.map((player) => (
             <div
               key={player.id}
@@ -113,7 +116,7 @@ const GameBoard = ({
             </div>
           ))}
           {phase === 'finished' && (
-            <div style={{ marginTop: '12px', fontSize: '13px', color: theme.colors.accentSuccess }}>
+            <div style={{ marginTop: '12px', fontSize: scaleFont('13px', fontScale), color: theme.colors.accentSuccess }}>
               Round complete.
             </div>
           )}
@@ -141,14 +144,14 @@ const GameBoard = ({
           </div>
 
           <div style={summaryBlockStyle}>
-            <div>Current turn: {currentPlayer ? currentPlayer.name : '—'}</div>
+            <div>Current turn: {currentPlayer ? currentPlayer.name : getCurrentTurnPlaceholder()}</div>
             <div>Cards remaining in deck: {drawPile.length}</div>
             <div>Required suit: {prettySuit(effectiveSuit)}</div>
           </div>
         </div>
 
         <div style={{ ...panelStyle, width: isCompact ? '100%' : 'auto' }}>
-          <h3 style={{ margin: 0, fontSize: '16px', color: theme.colors.textPrimary }}>Recent actions</h3>
+          <h3 style={{ margin: 0, fontSize: scaleFont('16px', fontScale), color: theme.colors.textPrimary }}>Recent actions</h3>
           <ul
             style={{
               listStyle: 'none',
@@ -157,7 +160,7 @@ const GameBoard = ({
               display: 'flex',
               flexDirection: 'column',
               gap: '6px',
-              fontSize: '13px',
+              fontSize: scaleFont('13px', fontScale),
               color: theme.colors.textMuted,
             }}
           >
@@ -177,11 +180,11 @@ const GameBoard = ({
           <div
             style={{
               marginTop: '8px',
-              fontSize: '12px',
+              fontSize: scaleFont('12px', fontScale),
               color: theme.colors.textMuted,
             }}
           >
-            {handLocked ? 'Waiting for your turn…' : 'Select a legal card to play.'}
+            {handLocked ? 'Waiting for your turn...' : 'Select a legal card to play.'}
           </div>
         </>
       )}
@@ -206,3 +209,7 @@ const GameBoard = ({
 };
 
 export default GameBoard;
+
+
+
+

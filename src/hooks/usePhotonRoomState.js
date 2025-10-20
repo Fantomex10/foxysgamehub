@@ -10,19 +10,27 @@ export const usePhotonRoomState = (
   const [state, setState] = useState(() => photon.getState());
   const [profileLoaded, setProfileLoaded] = useState(false);
   const lastPersistedNameRef = useRef(null);
+  const lastConnectionKeyRef = useRef(null);
 
   useEffect(() => {
     if (!authUser) return undefined;
 
-    setProfileLoaded(false);
+    const connectionKey = `${authUser.uid ?? 'unknown'}::${engine.id}`;
+    const shouldReconnect = lastConnectionKeyRef.current !== connectionKey;
 
-    photon.setEngine(engine);
+    if (shouldReconnect) {
+      setProfileLoaded(false);
 
-    photon.connect({
-      userId: authUser.uid,
-      userName: authUser.displayName ?? '',
-      engineId: engine.id,
-    });
+      photon.setEngine(engine);
+
+      photon.connect({
+        userId: authUser.uid,
+        userName: authUser.displayName ?? '',
+        engineId: engine.id,
+      });
+
+      lastConnectionKeyRef.current = connectionKey;
+    }
 
     const unsubscribe = photon.subscribe((nextState) => {
       setState(nextState);
@@ -32,6 +40,13 @@ export const usePhotonRoomState = (
 
     if (authUser.isOffline || profileBlocked) {
       setProfileLoaded(true);
+      return () => {
+        cancelled = true;
+        unsubscribe();
+      };
+    }
+
+    if (!shouldReconnect && profileLoaded) {
       return () => {
         cancelled = true;
         unsubscribe();
@@ -58,7 +73,7 @@ export const usePhotonRoomState = (
       cancelled = true;
       unsubscribe();
     };
-  }, [authUser, photon, engine, profileBlocked, session]);
+  }, [authUser, photon, engine, profileBlocked, session, onProfileError, profileLoaded]);
 
   useEffect(() => {
     if (!authUser || authUser.isOffline || profileBlocked) return;
@@ -74,7 +89,7 @@ export const usePhotonRoomState = (
         console.warn('[Session] Failed to persist display name', error);
         onProfileError?.();
       });
-  }, [authUser, state.userName, engine, profileBlocked, session]);
+  }, [authUser, state.userName, profileBlocked, session, onProfileError]);
 
   return { state, profileLoaded };
 };

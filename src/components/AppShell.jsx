@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import useMediaQuery from '../hooks/useMediaQuery.js';
-import { useTheme } from '../ui/ThemeContext.jsx';
+import { useCustomizationTokens } from '../customization/useCustomization.js';
+import { scaleFont } from '../ui/typography.js';
 
 const MenuIcon = ({ color }) => (
   <svg
@@ -51,7 +52,9 @@ const AppShell = ({
   forceProfileButton = false,
   menuButtonVariant = 'logo',
 }) => {
-  const { theme } = useTheme();
+  const { theme, accessibility } = useCustomizationTokens();
+  const fontScale = accessibility?.fontScale ?? 1;
+  const prefersReducedMotion = accessibility?.prefersReducedMotion ?? false;
   const isCompact = useMediaQuery('(max-width: 900px)');
   const [leftOpen, setLeftOpen] = useState(false);
   const [rightOpen, setRightOpen] = useState(false);
@@ -161,9 +164,9 @@ const AppShell = ({
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
-    transition: 'background 0.2s ease, opacity 0.2s ease',
+    transition: prefersReducedMotion ? 'none' : 'background 0.2s ease, opacity 0.2s ease',
     padding: 0,
-  }), [isCompact, theme]);
+  }), [isCompact, theme, prefersReducedMotion]);
 
   const buttonStyles = (active, disabled) => ({
     ...iconButtonStyle,
@@ -260,7 +263,7 @@ const AppShell = ({
   const roomInfoBlock = roomInfo ? (
     <div>
       <h1 style={{
-        fontSize: isCompact ? '16px' : '18px',
+        fontSize: scaleFont(isCompact ? '16px' : '18px', fontScale),
         fontWeight: 600,
         margin: 0,
         color: theme.colors.textPrimary,
@@ -269,7 +272,7 @@ const AppShell = ({
       </h1>
       <p style={{
         margin: '2px 0 0',
-        fontSize: '13px',
+        fontSize: scaleFont('13px', fontScale),
         color: theme.colors.textMuted,
       }}>
         Code: {roomInfo.code}
@@ -282,7 +285,7 @@ const AppShell = ({
       margin: 0,
       textAlign: 'center',
       color: theme.colors.textSecondary,
-      fontSize: isCompact ? '13px' : '14px',
+      fontSize: scaleFont(isCompact ? '13px' : '14px', fontScale),
       letterSpacing: '0.06em',
       textTransform: 'uppercase',
     }}>
@@ -295,7 +298,7 @@ const AppShell = ({
       <p style={{
         margin: 0,
         color: theme.colors.textMuted,
-        fontSize: '12px',
+        fontSize: scaleFont('12px', fontScale),
         letterSpacing: '0.04em',
         textTransform: 'uppercase',
       }}>
@@ -308,7 +311,7 @@ const AppShell = ({
   const renderMenuLogo = () => {
     if (menuButtonVariant === 'text') {
       return (
-        <span style={{ fontSize: '14px', fontWeight: 600, color: theme.colors.textPrimary }}>
+        <span style={{ fontSize: scaleFont('14px', fontScale), fontWeight: 600, color: theme.colors.textPrimary }}>
           Foxy Game Hub
         </span>
       );
@@ -318,7 +321,7 @@ const AppShell = ({
         style={{
           fontWeight: 700,
           letterSpacing: '0.16em',
-          fontSize: '12px',
+          fontSize: scaleFont('12px', fontScale),
           color: theme.colors.accentPrimary,
           textTransform: 'uppercase',
         }}

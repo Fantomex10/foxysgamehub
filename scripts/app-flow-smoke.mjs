@@ -2,7 +2,7 @@ import { setSessionAdapter, sessionService, getSessionAdapterKey } from '../src/
 import { setPhotonAdapter, photonService, getPhotonAdapterKey } from '../src/services/photonService.js';
 import { getDefaultGameEngine } from '../src/games/index.js';
 
-const divider = () => console.log('—'.repeat(48));
+const divider = () => console.log('='.repeat(48));
 
 async function run() {
   divider();
@@ -63,3 +63,4 @@ run().catch((error) => {
   console.error('Smoke run failed:', error);
   process.exitCode = 1;
 });
+

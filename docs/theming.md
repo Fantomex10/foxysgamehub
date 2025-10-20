@@ -21,6 +21,12 @@ The UI now consumes themes through `ThemeProvider` (`src/ui/ThemeContext.jsx`). 
   - `theme.buttons.*` for primary/subtle/ghost/icon button backgrounds
   - `theme.overlays.*` for modal scrims
 
+## Component Guidance
+
+- Prefer `useTheme()` for global UI and `useCustomizationTokens()` when card/table/skin tokens are needed (e.g. SuitPicker).
+- Build style objects inside the component so they can reference tokens (`ThemeProvider` now drives WelcomeScreen/SuitPicker this way—avoid frozen module-level color constants).
+- For status labels or iconography, derive colors from semantic tokens such as `theme.colors.accentSuccess` and `theme.colors.accentDanger` instead of embedding hex strings.
+
 Switching themes updates component styles automatically. The provider persists the last selection in `localStorage` under `fgb.theme`.
 
 ## Adding A Theme

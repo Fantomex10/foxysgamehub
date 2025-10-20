@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { APP_PHASES } from '../constants.js';
 import { getDefaultGameEngine, getGameEngineById, listGameEngines } from '../../games/index.js';
 import { listPhotonAdapters, photonService, setPhotonAdapter } from '../../services/photonService.js';
@@ -7,10 +7,9 @@ import { useDefaultPlayerInteraction } from '../../hooks/useDefaultPlayerInterac
 import { listSessionAdapters, sessionService, setSessionAdapter } from '../../services/sessionService.js';
 import { defaultServiceConfig, loadServiceConfig, persistServiceConfig } from '../../state/serviceConfig.js';
 import { resolveEngineModules } from '../modules/engineModules.js';
+import { AppStateContext } from './appStateContext.js';
 
 const defaultEngine = getDefaultGameEngine();
-
-const AppStateContext = createContext(null);
 
 const composeLobbyEntry = (snapshot, engine) => {
   if (!snapshot?.roomId) return null;
@@ -167,7 +166,38 @@ export const AppStateProvider = ({ children }) => {
     (config, selectedEngine) => {
       photon.setEngine(selectedEngine);
 
-      if (!authUser?.uid) return;
+      const currentState = photon.getState();
+      const fallbackUserId = currentState.userId ?? null;
+      const fallbackName = (currentState.userName ?? '').trim()
+        || (authUser?.displayName ?? '').trim()
+        || 'Player';
+
+      const resolvedName = fallbackName || 'Player';
+      photon.setDisplayName(resolvedName);
+
+      if (!authUser?.uid && fallbackUserId) {
+        setAuthUser((previous) => previous ?? {
+          uid: fallbackUserId,
+          displayName: resolvedName,
+          isAnonymous: true,
+          isOffline: true,
+        });
+      }
+
+      const hostId = authUser?.uid ?? fallbackUserId;
+      if (!hostId) {
+        console.warn('[AppState] Unable to resolve user id before creating lobby.');
+        return;
+      }
+
+      if (import.meta.env?.DEV) {
+        console.debug('[AppState] Creating lobby', {
+          engine: selectedEngine.id,
+          userId: hostId,
+          userName: photon.getState().userName,
+          settings: config.settings,
+        });
+      }
 
       photon.createRoom({
         settings: {
@@ -186,7 +216,7 @@ export const AppStateProvider = ({ children }) => {
         });
       }
     },
-    [authUser, photon, setAvailableRooms],
+    [authUser, photon, setAuthUser, setAvailableRooms],
   );
 
   useEffect(() => {
@@ -358,21 +388,6 @@ export const AppStateProvider = ({ children }) => {
   const interactionHook = engine.hooks?.usePlayerInteraction ?? useDefaultPlayerInteraction;
   const interaction = interactionHook({ state, photon, authUser, metadata: engine.metadata });
 
-  const hand = interaction.hand ?? (state.hands[state.userId] ?? []);
-  const handLocked = interaction.handLocked ?? false;
-  const onPlayCard = interaction.onPlayCard ?? ((card) => photon.playCard(state.userId, card));
-  const overlays = interaction.overlays ?? null;
-
-  const playerDisplayName = authUser?.displayName?.trim() || state.userName || 'Player';
-  const gameDisplayName = state.roomName || engine.name;
-
-  const lobbyModule = engineModules.lobby ?? {};
-  const tableModule = engineModules.table ?? {};
-  const welcomeModule = engineModules.welcome ?? {};
-  const LobbyComponent = lobbyModule.Component ?? (() => null);
-  const TableComponent = tableModule.Component;
-  const WelcomeComponent = welcomeModule.Component ?? (() => null);
-
   const roomActions = useMemo(
     () => ({
       updateUserDisplayName,
@@ -402,8 +417,20 @@ export const AppStateProvider = ({ children }) => {
     ],
   );
 
-  const contextValue = useMemo(
-    () => ({
+  const contextValue = useMemo(() => {
+    const resolvedHand = interaction.hand ?? (state.hands[state.userId] ?? []);
+    const resolvedHandLocked = interaction.handLocked ?? false;
+    const resolvedOnPlayCard = interaction.onPlayCard ?? ((card) => photon.playCard(state.userId, card));
+    const resolvedOverlays = interaction.overlays ?? null;
+
+    const playerDisplayName = authUser?.displayName?.trim() || state.userName || 'Player';
+    const gameDisplayName = state.roomName || engine.name;
+
+    const lobbyModule = engineModules.lobby ?? {};
+    const tableModule = engineModules.table ?? {};
+    const welcomeModule = engineModules.welcome ?? {};
+
+    return {
       engine,
       setEngine,
       engines,
@@ -417,63 +444,48 @@ export const AppStateProvider = ({ children }) => {
       profileBlocked,
       profileLoaded,
       state,
-      hand,
-      handLocked,
-      onPlayCard,
-      overlays,
+      hand: resolvedHand,
+      handLocked: resolvedHandLocked,
+      onPlayCard: resolvedOnPlayCard,
+      overlays: resolvedOverlays,
       playerDisplayName,
       gameDisplayName,
-      LobbyComponent,
-      TableComponent,
-      WelcomeComponent,
+      LobbyComponent: lobbyModule.Component ?? (() => null),
+      TableComponent: tableModule.Component,
+      WelcomeComponent: welcomeModule.Component ?? (() => null),
       engineModules,
       roomActions,
       serviceConfig,
       availableSessionAdapters: sessionAdapters,
       availablePhotonAdapters: photonAdapters,
       updateServiceConfig,
-    }),
-    [
-      engine,
-      engines,
-      gameOptions,
-      photon,
-      authUser,
-      authReady,
-      appPhase,
-      availableRooms,
-      profileBlocked,
-      profileLoaded,
-      state,
-      hand,
-      handLocked,
-      onPlayCard,
-      overlays,
-      playerDisplayName,
-      gameDisplayName,
-      LobbyComponent,
-      TableComponent,
-      WelcomeComponent,
-      engineModules,
-      roomActions,
-      serviceConfig,
-      sessionAdapters,
-      photonAdapters,
-      updateServiceConfig,
-    ],
-  );
+    };
+  }, [
+    engine,
+    setEngine,
+    engines,
+    gameOptions,
+    photon,
+    authUser,
+    authReady,
+    appPhase,
+    setAppPhase,
+    availableRooms,
+    profileBlocked,
+    profileLoaded,
+    state,
+    interaction,
+    engineModules,
+    roomActions,
+    serviceConfig,
+    sessionAdapters,
+    photonAdapters,
+    updateServiceConfig,
+  ]);
 
   return (
     <AppStateContext.Provider value={contextValue}>
       {children}
     </AppStateContext.Provider>
   );
-};
-
-export const useAppState = () => {
-  const context = useContext(AppStateContext);
-  if (!context) {
-    throw new Error('useAppState must be used within an AppStateProvider');
-  }
-  return context;
 };

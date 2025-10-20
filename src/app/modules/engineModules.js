@@ -1,9 +1,17 @@
 import LobbyView from '../../components/LobbyView.jsx';
 import WelcomeScreen from '../../components/WelcomeScreen.jsx';
+import {
+  getRoomTitle,
+  getRoomCode,
+  getDisplayName,
+  getWaitingStatus,
+  getLocalTimePlaceholder,
+  getCurrentTurnPlaceholder,
+} from '../../ui/textFallbacks.js';
 
 const defaultRoomInfo = ({ state, fallbackName = 'Friendly match' }) => ({
-  title: state.roomName ?? fallbackName,
-  code: state.roomId ?? '—',
+  title: getRoomTitle(state.roomName, fallbackName),
+  code: getRoomCode(state.roomId),
 });
 
 const defaultLobbyMenuSections = ({ roomActions }) => ([
@@ -17,43 +25,60 @@ const defaultLobbyMenuSections = ({ roomActions }) => ([
 ]);
 
 const defaultLobbyProfileSections = ({ state, gameDisplayName, playerDisplayName }) => ([
-  { type: 'highlight', label: 'Lobby', value: state.roomName ?? gameDisplayName },
-  { label: 'Room code', value: state.roomId ?? '—' },
-  { label: 'Status', value: state.banner || 'Waiting for players to ready up…' },
+  { type: 'highlight', label: 'Lobby', value: getRoomTitle(state.roomName, gameDisplayName) },
+  { label: 'Room code', value: getRoomCode(state.roomId) },
+  { label: 'Status', value: state.banner || getWaitingStatus() },
   { label: 'Spectators', value: String(state.spectators?.length ?? 0) },
-  { label: 'Local time', value: '--:--' },
+  { label: 'Local time', value: getLocalTimePlaceholder() },
   { type: 'divider', key: 'lobby-divider' },
-  { label: 'Display name', value: playerDisplayName },
+  { label: 'Display name', value: getDisplayName(playerDisplayName) },
   { label: 'Lobby notes', value: 'Share the code with friends to invite them.' },
 ]);
 
-const defaultTableMenuSections = ({ roomActions }) => ([
-  {
-    title: 'Session controls',
-    items: [
-      { label: 'Return to lobby', onClick: roomActions.returnToLobby, tone: 'primary' },
-      { label: 'Reset match', onClick: roomActions.resetSession, tone: 'danger' },
-      { label: 'Main menu', onClick: roomActions.returnToHub, tone: 'ghost' },
-    ],
-  },
-  {
-    title: 'Table tools',
-    items: [
-      { label: 'Table options', onClick: () => {}, tone: 'ghost' },
-      { label: 'Support', onClick: () => {}, tone: 'ghost' },
-    ],
-  },
-]);
+const defaultTableMenuSections = ({ roomActions }) => {
+  const sections = [
+    {
+      title: 'Session controls',
+      items: [
+        { label: 'Return to lobby', onClick: roomActions.returnToLobby, tone: 'primary' },
+        { label: 'Reset match', onClick: roomActions.resetSession, tone: 'danger' },
+        { label: 'Main menu', onClick: roomActions.returnToHub, tone: 'ghost' },
+      ],
+    },
+  ];
+
+  const tableTools = [
+    roomActions?.openTableOptions
+      ? { label: 'Table options', onClick: roomActions.openTableOptions, tone: 'ghost' }
+      : null,
+    roomActions?.openSupport
+      ? { label: 'Support', onClick: roomActions.openSupport, tone: 'ghost' }
+      : null,
+  ].filter(Boolean);
+
+  if (tableTools.length > 0) {
+    sections.push({
+      title: 'Table tools',
+      items: tableTools,
+    });
+  }
+
+  return sections;
+};
 
 const defaultTableProfileSections = ({ state, gameDisplayName, playerDisplayName }) => {
-  const currentPlayerName = state.players?.find((player) => player.id === state.currentTurn)?.name ?? '—';
+  const currentPlayer = state.players?.find((player) => player.id === state.currentTurn);
+  const currentTurnName = currentPlayer
+    ? getDisplayName(currentPlayer.name)
+    : getCurrentTurnPlaceholder();
+
   return [
-    { type: 'highlight', label: 'Lobby', value: state.roomName ?? gameDisplayName },
-    { label: 'Room code', value: state.roomId ?? '—' },
-    { label: 'Current turn', value: currentPlayerName },
+    { type: 'highlight', label: 'Lobby', value: getRoomTitle(state.roomName, gameDisplayName) },
+    { label: 'Room code', value: getRoomCode(state.roomId) },
+    { label: 'Current turn', value: currentTurnName },
     { label: 'Status', value: state.banner || 'Game in progress' },
     { type: 'divider', key: 'table-divider' },
-    { label: 'Display name', value: playerDisplayName },
+    { label: 'Display name', value: getDisplayName(playerDisplayName) },
     { label: 'Win streak', value: 'Coming soon' },
     { label: 'Unlocked items', value: 'No items unlocked yet.' },
   ];

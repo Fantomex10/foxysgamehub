@@ -1,5 +1,6 @@
 import { AppLayout } from '../components/AppLayout.jsx';
-import { useAppState } from '../context/AppStateContext.jsx';
+import { getRoomCode } from '../../ui/textFallbacks.js';
+import { useAppState } from '../context/useAppState.js';
 
 export const RoomPage = () => {
   const {
@@ -26,7 +27,7 @@ export const RoomPage = () => {
         hideProfileToggle
       >
         <div style={{ padding: '48px 24px', color: '#94a3b8', textAlign: 'center' }}>
-          Preparing lobby…
+          Preparing lobby...
         </div>
       </AppLayout>
     );
@@ -52,7 +53,7 @@ export const RoomPage = () => {
       ? lobbyModule.getRoomInfo({ state, engine, fallbackName: gameDisplayName })
       : {
         title: state.roomName ?? 'Friendly match',
-        code: state.roomId ?? '—',
+        code: getRoomCode(state.roomId),
       };
 
     return (
@@ -107,7 +108,7 @@ export const RoomPage = () => {
     ? tableModule.getRoomInfo({ state, engine, fallbackName: gameDisplayName })
     : {
       title: state.roomName ?? 'Friendly match',
-      code: state.roomId ?? '—',
+      code: getRoomCode(state.roomId),
     };
 
   return (

@@ -1,14 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { defaultTheme, defaultThemeId, getThemeById, listThemes } from './theme.js';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { ThemeContext } from './themeContext.js';
+import { defaultThemeId, getThemeById, listThemes } from './theme.js';
 
 const STORAGE_KEY = 'fgb.theme';
-
-const ThemeContext = createContext({
-  theme: defaultTheme,
-  themeId: defaultThemeId,
-  availableThemes: [],
-  setThemeId: () => {},
-});
 
 const readStoredThemeId = () => {
   if (typeof window === 'undefined' || !window.localStorage) {
@@ -76,12 +70,4 @@ export const ThemeProvider = ({ children }) => {
       {children}
     </ThemeContext.Provider>
   );
-};
-
-export const useTheme = () => {
-  const context = useContext(ThemeContext);
-  if (!context) {
-    throw new Error('useTheme must be used within a ThemeProvider');
-  }
-  return context;
 };

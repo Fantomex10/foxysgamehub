@@ -1,5 +1,5 @@
 import { APP_PHASES } from './constants.js';
-import { useAppState } from './context/AppStateContext.jsx';
+import { useAppState } from './context/useAppState.js';
 import { AppLayout } from './components/AppLayout.jsx';
 import { LoginPage } from './pages/LoginPage.jsx';
 import { HubPage } from './pages/HubPage.jsx';
@@ -24,11 +24,11 @@ export const AppView = () => {
   } = useAppState();
 
   if (!authReady) {
-    return <div style={statusStyle}>Establishing session…</div>;
+    return <div style={statusStyle}>Establishing session...</div>;
   }
 
   if (!profileLoaded && appPhase === APP_PHASES.ROOM && !profileBlocked) {
-    return <div style={statusStyle}>Synchronising profile…</div>;
+    return <div style={statusStyle}>Synchronising profile...</div>;
   }
 
   if (!TableComponent) {

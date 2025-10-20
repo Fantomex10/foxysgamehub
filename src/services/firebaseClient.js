@@ -63,22 +63,3 @@ export const upsertPlayerProfile = async (uid, profile) => {
   );
 };
 
-export const recordMatchResult = async (uid, match) => {
-  const app = initFirebaseApp();
-  const firestore = getFirestore(app);
-  const matchRef = doc(
-    firestore,
-    'players',
-    uid,
-    'matches',
-    match.id,
-  );
-  await setDoc(
-    matchRef,
-    {
-      ...match,
-      recordedAt: serverTimestamp(),
-    },
-    { merge: true },
-  );
-};

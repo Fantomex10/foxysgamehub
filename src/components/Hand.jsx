@@ -1,13 +1,17 @@
-import { useCustomizationTokens } from '../customization/CustomizationContext.jsx';
+import { useCustomizationTokens } from '../customization/useCustomization.js';
+import { scaleFont } from '../ui/typography.js';
 import Card from './Card.jsx';
 
 const Hand = ({ cards, onPlayCard, disabled = false }) => {
-  const { theme } = useCustomizationTokens();
+  const { theme, accessibility } = useCustomizationTokens();
+  const fontScale = accessibility?.fontScale ?? 1;
   const clickHandler = disabled ? undefined : onPlayCard;
 
   return (
     <div>
-      <h2 style={{ fontSize: '18px', marginBottom: '12px', color: theme.colors.textPrimary }}>Your Hand</h2>
+      <h2 style={{ fontSize: scaleFont('18px', fontScale), marginBottom: '12px', color: theme.colors.textPrimary }}>
+        Your Hand
+      </h2>
       <div
         style={{
           display: 'flex',
@@ -20,7 +24,9 @@ const Hand = ({ cards, onPlayCard, disabled = false }) => {
           <Card key={card.id} card={card} onClick={clickHandler} disabled={disabled} />
         ))}
         {cards.length === 0 && (
-          <div style={{ color: theme.colors.textMuted }}>Hand empty â€“ draw from the deck.</div>
+          <div style={{ color: theme.colors.textMuted, fontSize: scaleFont('14px', fontScale) }}>
+            Hand empty – draw from the deck.
+          </div>
         )}
       </div>
     </div>
@@ -28,3 +34,4 @@ const Hand = ({ cards, onPlayCard, disabled = false }) => {
 };
 
 export default Hand;
+

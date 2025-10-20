@@ -1,5 +1,6 @@
 import useMediaQuery from '../hooks/useMediaQuery.js';
-import { useCustomizationTokens } from '../customization/CustomizationContext.jsx';
+import { useCustomizationTokens } from '../customization/useCustomization.js';
+import { scaleFont } from '../ui/typography.js';
 
 const TableLayout = ({
   title,
@@ -8,8 +9,9 @@ const TableLayout = ({
   children,
   footer,
 }) => {
-  const { theme, table } = useCustomizationTokens();
+  const { theme, table, accessibility } = useCustomizationTokens();
   const isCompact = useMediaQuery('(max-width: 900px)');
+  const fontScale = accessibility?.fontScale ?? 1;
 
   const wrapperStyle = {
     background: table.panel ?? theme.colors.surfaceAlt,
@@ -34,7 +36,7 @@ const TableLayout = ({
 
   const titleStyle = {
     margin: 0,
-    fontSize: isCompact ? '22px' : '26px',
+    fontSize: scaleFont(isCompact ? '22px' : '26px', fontScale),
     color: table.text ?? theme.colors.textPrimary,
   };
 
@@ -44,7 +46,7 @@ const TableLayout = ({
         style={{
           margin: '6px 0 0',
           color: theme.colors.textMuted,
-          fontSize: '13px',
+          fontSize: scaleFont('13px', fontScale),
         }}
       >
         {subtitle}
@@ -74,3 +76,4 @@ const TableLayout = ({
 };
 
 export default TableLayout;
+
