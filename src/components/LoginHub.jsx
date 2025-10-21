@@ -57,6 +57,8 @@ const LoginHub = ({ defaultName = '', onSubmit }) => {
     position: 'relative',
   }), [isCompact, isShort, theme]);
 
+  const entryWidth = '50%';
+
   const inputStyle = useMemo(() => ({
     padding: isCompact || isShort ? '11px 14px' : '12px 16px',
     borderRadius: theme.radii.sm,
@@ -64,6 +66,8 @@ const LoginHub = ({ defaultName = '', onSubmit }) => {
     background: theme.colors.surfaceMuted,
     color: theme.colors.textPrimary,
     fontSize: scaleFont(isCompact || isShort ? '15px' : '16px', fontScale),
+    width: entryWidth,
+    alignSelf: 'center',
   }), [isCompact, isShort, theme, fontScale]);
 
   const transitionStyle = prefersReducedMotion ? 'none' : 'transform 0.2s ease, opacity 0.2s ease';
@@ -104,6 +108,7 @@ const LoginHub = ({ defaultName = '', onSubmit }) => {
     cursor: 'pointer',
     transition: subtleTransition,
     textAlign: 'center',
+    width: entryWidth,
   }), [theme, fontScale, subtleTransition]);
 
   const labelStyle = useMemo(() => ({
@@ -187,7 +192,7 @@ const LoginHub = ({ defaultName = '', onSubmit }) => {
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', alignItems: 'center' }}>
           {providerOptions.map((label) => (
             <button
               key={label}

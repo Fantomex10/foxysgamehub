@@ -1,4 +1,4 @@
-ï»¿# Foxy Game Hub (Workspace Snapshot)
+# Foxy Game Hub (Workspace Snapshot)
 
 Foxy Game Hub is an accessible multiplayer shell that can host multiple turn-based engines (currently Crazy Eights and Hearts). It ships with a mock photon adapter for local play, optional Firebase-backed identity, a fully tokenised theming/customisation stack, and React + Vite for rapid iteration.
 
@@ -63,12 +63,12 @@ Optional follow-ups after Phase 3:
 - `docs/customization.md` documents registry naming and preview conventions so future skins/backdrops and presets ship with consistent metadata and accessible color tokens.
 
 ### Phase 6 - Cosmetic Polish & Structural Refactors
-- **Step 0 â€“ Guard the Baseline**: Capture screenshots of current create/join flows, verify `npm run lint`, `npm run test`, `npm run build`, and note any known quirks. Treat this as the rollback point if structural work has to pause.
-- **Step 1 â€“ Responsibility Map**: Audit `CreateLobbyForm.jsx` and `LobbyView.jsx`, documenting state ownership, validation, modal management, seat/status wiring, and customization hooks. Log uncovered responsibilities in CODEx before editing.
-- **Step 2 â€“ Extract Logic Hooks**: Move reusable logic into hooks/utilities (e.g., `useCreateLobbyConfig`, `useLobbySeatManager`, `useLobbyStatusActions`) with accompanying unit tests so pages can re-import them without JSX churn.
-- **Step 3 â€“ Slice UI Components**: Lift JSX sections into focused components under `src/components/lobby/` (`CreateLobbyBasics`, `BotStepper`, `LobbyHeader`, `SeatingPanel`). Ensure props carry customization tokens/accessibility flags.
-- **Step 4 â€“ Reassemble Pages**: Rewire `CreateLobbyPage.jsx` and `LobbyView.jsx` using the new modules, prune redundant state, and keep service orchestration thin. Run integration flows after each milestone.
-- **Step 5 â€“ Visual QA & Follow-up**: List Storybook/screenshot targets, identify any placeholder art/tooltips that still need real assets, and update CODEx/README with the new module layout before moving to wider cosmetic polish.
+- **Step 0 – Guard the Baseline**: Capture screenshots of current create/join flows, verify `npm run lint`, `npm run test`, `npm run build`, and note any known quirks. Treat this as the rollback point if structural work has to pause.
+- **Step 1 – Responsibility Map**: Audit `CreateLobbyForm.jsx` and `LobbyView.jsx`, documenting state ownership, validation, modal management, seat/status wiring, and customization hooks. Log uncovered responsibilities in CODEx before editing.
+- **Step 2 – Extract Logic Hooks**: Move reusable logic into hooks/utilities (e.g., `useCreateLobbyConfig`, `useLobbySeatManager`, `useLobbyStatusActions`) with accompanying unit tests so pages can re-import them without JSX churn.
+- **Step 3 – Slice UI Components**: Lift JSX sections into focused components under `src/components/lobby/` (`CreateLobbyBasics`, `BotStepper`, `LobbyHeader`, `SeatingPanel`). Ensure props carry customization tokens/accessibility flags.
+- **Step 4 – Reassemble Pages**: Rewire `CreateLobbyPage.jsx` and `LobbyView.jsx` using the new modules, prune redundant state, and keep service orchestration thin. Run integration flows after each milestone.
+- **Step 5 – Visual QA & Follow-up**: List Storybook/screenshot targets, identify any placeholder art/tooltips that still need real assets, and update CODEx/README with the new module layout before moving to wider cosmetic polish.
 
 ---
 
@@ -156,6 +156,7 @@ For a deeper design discussion around customisation, see `docs/customization.md`
 ---
 
 Maintained with care by the Foxy Game Hub contributors. Feel free to open issues or PRs to continue the roadmap above.
+
 
 
 

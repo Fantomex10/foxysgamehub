@@ -15,6 +15,16 @@ export const getDisplayName = (value, fallback = 'Player') => {
   return trimmed.length > 0 ? trimmed : fallback;
 };
 
+export const getLobbyCategory = (visibility) => {
+  const trimmed = trimText(visibility).toLowerCase();
+  if (trimmed === 'private') return 'Custom lobby';
+  if (trimmed === 'public') return 'Game lobby';
+  if (trimmed.length > 0) {
+    return trimmed.replace(/^\w/, (char) => char.toUpperCase());
+  }
+  return 'Game lobby';
+};
+
 export const getWaitingStatus = () => 'Waiting for players to ready up...';
 
 export const getLocalTimePlaceholder = () => 'Syncing clock';

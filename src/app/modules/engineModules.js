@@ -9,10 +9,19 @@ import {
   getCurrentTurnPlaceholder,
 } from '../../ui/textFallbacks.js';
 
-const defaultRoomInfo = ({ state, fallbackName = 'Friendly match' }) => ({
-  title: getRoomTitle(state.roomName, fallbackName),
-  code: getRoomCode(state.roomId),
-});
+const defaultRoomInfo = ({ state, fallbackName = 'Friendly match' }) => {
+  const rawPassword = state.roomSettings?.password;
+  const trimmedPassword = typeof rawPassword === 'string' ? rawPassword.trim() : '';
+  const password = trimmedPassword.length > 0 ? trimmedPassword : null;
+  const code = getRoomCode(state.roomId);
+
+  return {
+    title: getRoomTitle(state.roomName, fallbackName),
+    code,
+    id: code,
+    password,
+  };
+};
 
 const defaultLobbyMenuSections = ({ roomActions }) => ([
   {

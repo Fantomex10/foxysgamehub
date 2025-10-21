@@ -18,16 +18,33 @@ export const FooterActions = ({ isHost, onReset, onBack }) => {
     transition: prefersReducedMotion ? 'none' : 'background 0.2s ease, border 0.2s ease',
   }), [theme, fontScale, prefersReducedMotion]);
 
+  const containerStyle = {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
+    flexWrap: 'wrap',
+    width: '100%',
+  };
+
+  const buttonWrapperStyle = {
+    display: 'flex',
+    gap: theme.spacing.sm,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  };
+
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
-      {isHost && (
-        <button type="button" onClick={onReset} style={buttonStyle}>
-          Reset lobby
+    <div style={containerStyle}>
+      <div style={buttonWrapperStyle}>
+        {isHost && (
+          <button type="button" onClick={onReset} style={buttonStyle}>
+            Reset lobby
+          </button>
+        )}
+        <button type="button" onClick={onBack} style={buttonStyle}>
+          Back to hub
         </button>
-      )}
-      <button type="button" onClick={onBack} style={buttonStyle}>
-        Back to hub
-      </button>
+      </div>
     </div>
   );
 };

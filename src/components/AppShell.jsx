@@ -260,23 +260,62 @@ const AppShell = ({
     return breadcrumbs;
   }, [breadcrumbs]);
 
-  const roomInfoBlock = roomInfo ? (
+  const normaliseInfoValue = (value) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : '';
+    }
+    return value ?? '';
+  };
+
+  const roomTitle = normaliseInfoValue(roomInfo?.title);
+  const roomIdValue = (() => {
+    const idCandidate = normaliseInfoValue(roomInfo?.id);
+    if (typeof idCandidate === 'string' && idCandidate.length > 0) {
+      return idCandidate;
+    }
+    const codeCandidate = normaliseInfoValue(roomInfo?.code);
+    if (typeof codeCandidate === 'string' && codeCandidate.length > 0) {
+      return codeCandidate;
+    }
+    return '';
+  })();
+  const roomPassword = normaliseInfoValue(roomInfo?.password);
+
+  const hasRoomTitle = typeof roomTitle === 'string' ? roomTitle.length > 0 : Boolean(roomTitle);
+  const hasRoomId = typeof roomIdValue === 'string' ? roomIdValue.length > 0 : Boolean(roomIdValue);
+  const hasRoomPassword = typeof roomPassword === 'string' ? roomPassword.length > 0 : Boolean(roomPassword);
+
+  const roomInfoBlock = (hasRoomTitle || hasRoomId || hasRoomPassword) ? (
     <div>
-      <h1 style={{
-        fontSize: scaleFont(isCompact ? '16px' : '18px', fontScale),
-        fontWeight: 600,
-        margin: 0,
-        color: theme.colors.textPrimary,
-      }}>
-        {roomInfo.title}
-      </h1>
-      <p style={{
-        margin: '2px 0 0',
-        fontSize: scaleFont('13px', fontScale),
-        color: theme.colors.textMuted,
-      }}>
-        Code: {roomInfo.code}
-      </p>
+      {hasRoomTitle && (
+        <h1 style={{
+          fontSize: scaleFont(isCompact ? '16px' : '18px', fontScale),
+          fontWeight: 600,
+          margin: 0,
+          color: theme.colors.textPrimary,
+        }}>
+          {roomTitle}
+        </h1>
+      )}
+      {hasRoomId && (
+        <p style={{
+          margin: hasRoomTitle ? '2px 0 0' : 0,
+          fontSize: scaleFont('13px', fontScale),
+          color: theme.colors.textMuted,
+        }}>
+          ID: {roomIdValue}
+        </p>
+      )}
+      {hasRoomPassword && (
+        <p style={{
+          margin: hasRoomTitle || hasRoomId ? '2px 0 0' : 0,
+          fontSize: scaleFont('13px', fontScale),
+          color: theme.colors.textMuted,
+        }}>
+          Password: {roomPassword}
+        </p>
+      )}
     </div>
   ) : null;
 
@@ -294,18 +333,9 @@ const AppShell = ({
   ) : null;
 
   const identityBlock = showIdentity && playerName ? (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-      <p style={{
-        margin: 0,
-        color: theme.colors.textMuted,
-        fontSize: scaleFont('12px', fontScale),
-        letterSpacing: '0.04em',
-        textTransform: 'uppercase',
-      }}>
-        Signed in as
-      </p>
-      <strong>{playerName}</strong>
-    </div>
+    <strong style={{ fontSize: scaleFont('13px', fontScale), color: theme.colors.textPrimary }}>
+      {playerName}
+    </strong>
   ) : null;
 
   const renderMenuLogo = () => {

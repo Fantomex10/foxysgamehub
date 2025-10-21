@@ -1,18 +1,14 @@
-import { useMemo } from 'react';
-import { useCustomizationTokens } from '../customization/useCustomization.js';
 import { useCreateLobbyConfig } from './lobby/useCreateLobbyConfig.js';
 import { CreateLobbyNameField } from './createLobby/CreateLobbyNameField.jsx';
 import { CreateLobbyEngineSelect } from './createLobby/CreateLobbyEngineSelect.jsx';
-import { CreateLobbyVisibilityToggle } from './createLobby/CreateLobbyVisibilityToggle.jsx';
-import { CreateLobbyStepperRow } from './createLobby/CreateLobbyStepperRow.jsx';
-import { CreateLobbyHelperText } from './createLobby/CreateLobbyHelperText.jsx';
-import { CreateLobbyOptionsButton } from './createLobby/CreateLobbyOptionsButton.jsx';
 import { CreateLobbyFooter } from './createLobby/CreateLobbyFooter.jsx';
 import { CreateLobbyOptionsModal } from './createLobby/CreateLobbyOptionsModal.jsx';
 import { CreateLobbyPasswordModal } from './createLobby/CreateLobbyPasswordModal.jsx';
+import { CreateLobbyLayout } from './createLobby/CreateLobbyLayout.jsx';
+import { CreateLobbyAdjuster } from './createLobby/CreateLobbyAdjuster.jsx';
+import { CreateLobbyPrivacy } from './createLobby/CreateLobbyPrivacy.jsx';
 
 const CreateLobbyForm = ({ engines, defaultEngineId, onCancel, onCreate }) => {
-  const { theme } = useCustomizationTokens();
   const {
     state: {
       roomName,
@@ -53,22 +49,6 @@ const CreateLobbyForm = ({ engines, defaultEngineId, onCancel, onCreate }) => {
     onCreate,
   });
 
-  const containerStyle = useMemo(() => ({
-    maxWidth: '680px',
-    margin: '0 auto',
-    background: theme.colors.surface,
-    border: `1px solid ${theme.colors.border}`,
-    borderRadius: theme.radii.lg,
-    padding: '16px',
-    boxShadow: theme.shadows.panel,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: theme.spacing.sm,
-    boxSizing: 'border-box',
-    width: '100%',
-    position: 'relative',
-  }), [theme]);
-
   const handleDecreasePlayers = () => {
     setMaxPlayers((value) => Math.max(minPlayers, Number(value) - 1));
   };
@@ -86,12 +66,11 @@ const CreateLobbyForm = ({ engines, defaultEngineId, onCancel, onCreate }) => {
   };
 
   return (
-    <div style={containerStyle}>
+    <CreateLobbyLayout>
       <CreateLobbyNameField value={roomName} onChange={setRoomName} />
       <CreateLobbyEngineSelect engines={engines} value={engineId} onChange={setEngineId} />
-      <CreateLobbyVisibilityToggle isPrivate={isPrivate} onToggle={handleVisibilityToggle} />
 
-      <CreateLobbyStepperRow
+      <CreateLobbyAdjuster
         label="Max players"
         value={requiredPlayers ?? maxPlayers}
         onIncrement={handleIncreasePlayers}
@@ -100,9 +79,14 @@ const CreateLobbyForm = ({ engines, defaultEngineId, onCancel, onCreate }) => {
         decrementDisabled={Boolean(requiredPlayers) || maxPlayers <= minPlayers}
         incrementAriaLabel="Increase max players"
         decrementAriaLabel="Decrease max players"
+        helperText={
+          requiredPlayers
+            ? 'Seat count locked by engine; add bots to fill empty seats.'
+            : undefined
+        }
       />
 
-      <CreateLobbyStepperRow
+      <CreateLobbyAdjuster
         label="Bots"
         value={botCount}
         onIncrement={handleIncreaseBots}
@@ -111,15 +95,18 @@ const CreateLobbyForm = ({ engines, defaultEngineId, onCancel, onCreate }) => {
         decrementDisabled={botCount <= minBots}
         incrementAriaLabel="Increase bots"
         decrementAriaLabel="Decrease bots"
+        helperText={
+          requiredPlayers
+            ? 'Hearts needs four players. Add bots to fill empty seats if required.'
+            : undefined
+        }
       />
 
-      {requiredPlayers && (
-        <CreateLobbyHelperText>
-          Hearts needs four players. Add bots to fill empty seats if required.
-        </CreateLobbyHelperText>
-      )}
-
-      <CreateLobbyOptionsButton onClick={() => setShowOptionsModal(true)} />
+      <CreateLobbyPrivacy
+        isPrivate={isPrivate}
+        onToggle={handleVisibilityToggle}
+        onOptionsClick={() => setShowOptionsModal(true)}
+      />
 
       <CreateLobbyFooter
         canSubmit={canSubmit}
@@ -157,7 +144,7 @@ const CreateLobbyForm = ({ engines, defaultEngineId, onCancel, onCreate }) => {
           handleSubmit();
         }}
       />
-    </div>
+    </CreateLobbyLayout>
   );
 };
 

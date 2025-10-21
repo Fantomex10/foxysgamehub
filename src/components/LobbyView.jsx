@@ -1,33 +1,37 @@
 import { useMemo } from 'react';
-import useMediaQuery from '../hooks/useMediaQuery.js';
 import { useCustomizationTokens } from '../customization/useCustomization.js';
-import { scaleFont } from '../ui/typography.js';
 import { getWaitingStatus } from '../ui/textFallbacks.js';
 import { SeatManagerDialog } from './lobby/SeatManagerDialog.jsx';
 import { PlayersSection } from './lobby/PlayersSection.jsx';
 import { SpectatorSection } from './lobby/SpectatorSection.jsx';
-import { HostControls } from './lobby/HostControls.jsx';
 import { LobbyBanner } from './lobby/LobbyBanner.jsx';
-import { FooterActions } from './lobby/FooterActions.jsx';
 import { useLobbyOrchestration } from './lobby/useLobbyOrchestration.js';
+import { useLobbyActions } from './lobby/useLobbyActions.js';
+import { LobbyActionGrid } from './lobby/LobbyActionGrid.jsx';
+import { LobbyHeader } from './lobby/LobbyHeader.jsx';
+import { SeatManagerSummary } from './lobby/SeatManagerSummary.jsx';
 
 const DEFAULT_BANNER = getWaitingStatus();
 
-const containerStyle = (theme, isCompact) => ({
+const containerStyle = (theme) => ({
   display: 'flex',
   flexDirection: 'column',
   gap: theme.spacing.lg,
-  padding: isCompact ? theme.spacing.md : theme.spacing.lg,
+  padding: theme.spacing.md,
+  position: 'relative',
   borderRadius: theme.radii.lg,
   background: theme.colors.surface,
   border: `1px solid ${theme.colors.border}`,
   boxShadow: theme.shadows.panel,
   boxSizing: 'border-box',
+  width: '100%',
+  maxWidth: '540px',
+  margin: '0 auto',
+  alignItems: 'stretch',
 });
 
 const LobbyView = ({
   roomId,
-  roomName,
   players,
   spectators = [],
   hostId,
@@ -38,7 +42,6 @@ const LobbyView = ({
   seatRules,
   roomSettings,
   onSelectGame,
-  onCycleStatus,
   onSetStatus,
   onUpdateSeats,
   onStart,
@@ -50,7 +53,17 @@ const LobbyView = ({
 }) => {
   const { theme, accessibility } = useCustomizationTokens();
   const fontScale = accessibility?.fontScale ?? 1;
-  const isCompactLayout = useMediaQuery('(max-width: 600px)');
+  const prefersReducedMotion = Boolean(accessibility?.prefersReducedMotion);
+  const isCompactLayout = true;
+
+  const getPlayerStatus = (player) => {
+    if (!player) return 'notReady';
+    const { status, isReady } = player;
+    if (['notReady', 'ready', 'needsTime'].includes(status)) {
+      return status;
+    }
+    return isReady ? 'ready' : 'notReady';
+  };
 
   const {
     isHost,
@@ -80,62 +93,85 @@ const LobbyView = ({
     onUpdateSeats,
   });
 
+  const selfPlayer = players.find((player) => player.id === userId);
+  const selfStatus = getPlayerStatus(selfPlayer);
+
   const containerStyles = useMemo(
-    () => containerStyle(theme, isCompactLayout),
-    [theme, isCompactLayout],
+    () => containerStyle(theme),
+    [theme],
   );
+
+  const canChangeOwnStatus = Boolean(onSetStatus && userId);
+
+  const { primaryActions, secondaryActions } = useLobbyActions({
+    userId,
+    selfStatus,
+    canChangeOwnStatus,
+    isHost,
+    seatManagerEnabled,
+    openSeatManager,
+    onSetStatus,
+    onAddBot,
+    onRemoveBot,
+    onAddPlayerSlot: undefined,
+    onRemovePlayerSlot: undefined,
+    onStart,
+    onConfigureTable,
+    onReturnToWelcome,
+    onBackToHub,
+    canStart,
+  });
 
   const shouldShowBanner = Boolean(banner && banner !== DEFAULT_BANNER);
 
   return (
     <div style={containerStyles}>
-      <header>
-        <h2
-          style={{
-            margin: 0,
-            color: theme.colors.textPrimary,
-            fontSize: scaleFont('22px', fontScale),
-          }}
-        >
-          {roomName ?? 'Friendly match'}
-        </h2>
-      </header>
-
-      <PlayersSection
-        players={players}
-        userId={userId}
+      <LobbyHeader
+        playerCount={players.length}
         seatCapacity={seatCapacity}
-        isHost={isHost}
         isCompact={isCompactLayout}
         gameSelectId={gameSelectId}
         gameOptions={availableGames}
         currentGameId={currentGameId}
         showGameSelect={showGameSelect}
         onSelectGame={handleGameSelection}
-        onSetStatus={onSetStatus}
-        onCycleStatus={onCycleStatus}
+      />
+
+      <PlayersSection
+        players={players}
+        userId={userId}
+        isCompact={isCompactLayout}
       />
 
       <SpectatorSection spectators={benchList} userId={userId} />
 
       {shouldShowBanner && <LobbyBanner banner={banner} />}
 
-      {isHost && (
-        <HostControls
-          canStart={canStart}
-          onStart={onStart}
-          onAddBot={onAddBot}
-          onRemoveBot={onRemoveBot}
-          seatManagerEnabled={seatManagerEnabled}
-          onSeatManagerOpen={openSeatManager}
-          onConfigureTable={onConfigureTable}
-        />
-      )}
+      <LobbyActionGrid
+        actions={primaryActions}
+        columns={4}
+        isCompact={isCompactLayout}
+        theme={theme}
+        fontScale={fontScale}
+        prefersReducedMotion={prefersReducedMotion}
+        variant="primary"
+      />
 
-      <FooterActions
-        isHost={isHost}
-        onReset={onReturnToWelcome}
-        onBack={onBackToHub}
+      <LobbyActionGrid
+        actions={secondaryActions}
+        columns={2}
+        isCompact={isCompactLayout}
+        theme={theme}
+        fontScale={fontScale}
+        prefersReducedMotion={prefersReducedMotion}
+        variant="secondary"
+      />
+
+      <SeatManagerSummary
+        seatCapacity={seatCapacity}
+        players={players}
+        benchList={benchList}
+        seatManagerEnabled={seatManagerEnabled}
       />
 
       {seatManagerEnabled && (

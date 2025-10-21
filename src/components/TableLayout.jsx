@@ -16,11 +16,11 @@ const TableLayout = ({
   const wrapperStyle = {
     background: table.panel ?? theme.colors.surfaceAlt,
     border: `1px solid ${table.border ?? theme.colors.border}`,
-    borderRadius: isCompact ? theme.radii.lg : theme.radii.xl,
-    padding: isCompact ? '24px 20px' : '32px',
+    borderRadius: isCompact ? theme.radii.sm : theme.radii.md,
+    padding: isCompact ? '12px 10px 24px' : '18px 16px 32px',
     display: 'flex',
     flexDirection: 'column',
-    gap: isCompact ? '16px' : '24px',
+    gap: isCompact ? '10px' : '16px',
     boxShadow: theme.shadows.panel,
     boxSizing: 'border-box',
     width: '100%',
@@ -66,7 +66,7 @@ const TableLayout = ({
         </header>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: isCompact ? '16px' : '20px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: isCompact ? '12px' : '16px' }}>
         {children}
       </div>
 

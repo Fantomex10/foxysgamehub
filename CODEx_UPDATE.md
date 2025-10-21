@@ -1,5 +1,23 @@
 ﻿# Codex Worklog
 
+## Session Snapshot (2025-10-21)
+- **Starting point:** Phase 6 structural polish was queued with baseline guardrails untracked after completing Phase 5.
+- **What we accomplished:**
+  - Ran `npm run lint`, `npm run test`, and `npm run build` to freeze the current healthy baseline (all passing as of 08:08 local).
+  - Captured bundle outputs from the build (`firebase-WzMgrUB2.js` 451.47 kB, `react-vendor-CgG7ybVg.js` 182.66 kB, main bundle 148.97 kB) to monitor for regressions during refactors.
+  - Reviewed `CreateLobbyForm` and `LobbyView` to note remaining console-stubbed actions (player slot adjustments, table options, bot management) and confirm `SeatManagerDialog.jsx` remains a single 21 kB component slated for slicing.
+  - Logged outstanding visual guardrail work (screenshots for Create Lobby, Lobby, Seat Manager, Table) ahead of layout refactors.
+- Captured baseline screenshots (2025-10-20) in `docs/screenshots/` covering Create Lobby (public/private + password modal), Join/Lobby host & guest, Seat Manager reassignment, and table handoff; use as rollback reference before cosmetic polish.
+- Implemented `useLobbyActions` and `useSeatManagerActions` hooks to centralise host controls, replaced console placeholders with disabled states, and added targeted Vitest coverage for lobby/seat orchestration.
+- **Where we stopped:** Visual QA (baseline screenshots) captured on 2025-10-20 in `docs/screenshots/`; cosmetic polish is next.
+- **Notes for GitHub entry:** "Phase 6 Kickoff � baseline validated; proceeding with responsibility map for lobby/create refactors."
+
+### Phase 6 Prep Notes (2025-10-21)
+- Logic extraction: promote the status/seat action builders in `LobbyView.jsx` into `useLobbySeatManager` + `useLobbyActions`, replacing console placeholders before UI slicing.
+- Component slicing: plan `LobbyActionGrid`, `LobbyHeader`, and `SeatManagerSummary` shells so action grids and header copy move out of `LobbyView.jsx`.
+- Seat manager breakdown: sketch `SeatList`, `BenchList`, and `SeatControls` components to shrink `SeatManagerDialog.jsx` and enable targeted props/tests.
+- Verification: add Vitest units around new hooks/components and keep `tests/appFlow*.integration.test.js` as guard after each extraction.
+
 ## Session Snapshot (2025-10-20)
 - **Starting point:** Phase 5 remained open with customization coverage gaps in seat management, modal flows, and reduced-motion handling, plus missing registry guidance.
 - **What we accomplished:**
@@ -8,7 +26,7 @@
   - Documented registry contribution guidelines in `docs/customization.md`, marked Phase 5 complete in `README.md`, and refreshed the worklog for the current state.
   - Ran `npm run lint`, `npm run test`, and `npm run build`; all commands passed with the expanded suite.
 - **Where we stopped:** Phase 5 deliverables are complete and documented. Phase 6 cosmetic polish and deployment readiness follow-ups now lead the backlog.
-- **Notes for GitHub entry:** Codebase is stable and modular ahead of cosmetic/UI overhaul—share this state as “Working (pre-cosmetic overhaul / UI updates)” so contributors know future commits will focus on visual polish.
+- **Notes for GitHub entry:** Codebase is stable and modular ahead of cosmetic/UI overhaul�share this state as �Working (pre-cosmetic overhaul / UI updates)� so contributors know future commits will focus on visual polish.
 
 ## Session Snapshot (2025-10-19)
 - **Starting point:** The Phase 3 plan existed, but the documentation sweep, ASCII fallback cleanup, and additional integration coverage were still open.
@@ -42,31 +60,44 @@
 ## Immediate Next Steps
 1. **Phase 6 - Cosmetic Polish & Structural Refactors (Next Focus)**
    - **Step 0 - Baseline & Guardrails**: Freeze current behaviour by collecting screenshots of Create/Join flows, note outstanding accessibility toggles, and ensure `tests/appFlow*.integration.test.js` pass before touching structure. If work pauses, revert to this checkpoint.
-     - ? 2025-10-20: `npm run lint`, `npm run test`, and `npm run build` all passing; integration smoke via Vitest confirms create/join baseline. Screenshots still outstanding and should be captured once UI is running locally.
+     - DONE 2025-10-21: Lint/test/build recorded at 08:08 with bundle sizes logged; integration suite (`tests/appFlow*.integration.test.js`) still green.
+       - Screenshot checklist (capture before structural refactors):
+         - Launch `npm run dev`, open `http://localhost:5173/`, and grab Create Lobby (public) with default settings plus the privacy toggle closed.
+         - Toggle privacy to capture the Private Lobby state, including the password modal after submitting without a password.
+         - Join Lobby view: capture host perspective (all action buttons visible) and a guest perspective (status controls only).
+         - Seat Manager dialog: record initial state plus one seat reassignment (bench to seat) to document current controls.
+         - Optional: table handoff once `Start game` succeeds, noting banner/status copy for regression tracking.
    - **Step 1 - Responsibility Map**: Catalogue every concern inside `CreateLobbyForm.jsx` and `LobbyView.jsx` (state initialisation, validation, seat manager wiring, status control hooks, modal handling). Capture the list in this CODEx file so later agents know what remains.
-     - Mapping snapshot (2025-10-20):
-       - `CreateLobbyForm.jsx` currently owns:
-         - Form state for room name, engine selection, player/bot counts, privacy toggle, password plus validation errors.
-         - Engine metadata cross-check (`playerConfig`) with effects that clamp players/bots, track default engine updates, and memoised helpers (`maxBotsForPlayers`).
-         - Submission packaging (normalising roomName, coercing numeric values, emitting `onCreate` payload) and modal flows for game options/password prompts.
-         - Inline theming/accessibility styling via `useCustomizationTokens` and multiple memoised style objects (container, toggles, steppers, modals).
-         - Accessibility affordances (aria labels/ids, reduced-motion transitions, high-contrast styles) and side effects resetting password state.
-       - `LobbyView.jsx` currently owns:
-         - Top-level lobby orchestration: host detection, readiness gating, seat manager toggles, derived game selection helpers, media-query responsive layout.
-         - Nested presentational components (`PlayersSection`, `SpectatorSection`, `HostControls`, `LobbyBanner`, `FooterActions`) defined inline with repeated memoised styles and direct consumption of `useCustomizationTokens`.
-         - Status management hooks (invoking `onSetStatus`/`onCycleStatus`), bot/seat manager buttons, game selection drop-down, and host-only controls.
-         - Integration with `SeatManagerDialog` including async-aware apply handler and bench/seat capacity derivations.
-         - Footer routing actions (`onReturnToWelcome`, `onBackToHub`) and banner rendering based on server-provided copy.
+     - Mapping snapshot (2025-10-21):
+       - `CreateLobbyPage.jsx`: pulls engine context (`useAppState`) and passes `roomActions.createLobby`/`setAppPhase` handlers into the form, with empty-state guard when no engines are registered.
+       - `CreateLobbyForm.jsx`: handles layout and styling, delegating state/submission to `useCreateLobbyConfig`; wires subcomponents for inputs, steppers, visibility toggles, and options/password modals.
+       - `useCreateLobbyConfig.js`: owns lobby creation state (room name, engine, player/bot counts, privacy/password), clamps based on engine metadata, and packages the payload sent to `roomActions.createLobby`.
+       - `LobbyView.jsx`: orchestrates host interactions (status buttons, seat manager toggle, action grids), composes `PlayersSection`, `SpectatorSection`, `LobbyBanner`, and renders action buttons with inline token-aware styles.
+       - `useLobbyOrchestration.js`: derives host/guest flags, readiness gating, available games, seat capacity, bench list, and manages seat manager dialog state before calling `onSelectGame`/`onUpdateSeats`.
+       - `SeatManagerDialog.jsx`: encapsulates seat/bench editing with local draft state, action stacks (assign, kick, promote), and applies updates through `onApply`; styling is still inline and monolithic (~21 kB).
+       - `PlayersSection.jsx` / `SpectatorSection.jsx`: render participant lists, statuses, and game selector; consume customization tokens directly and expose limited props for layout tweaking.
    - **Step 2 - Logic Extraction**: Peel non-UI logic into reusable hooks/utilities (`useCreateLobbyConfig`, `useLobbySeatManager`, `deriveLobbyMeta`). Each extraction should ship with unit tests and keep existing callers untouched. Pause here if timing slips.
      - DONE 2025-10-20: Extracted `useCreateLobbyConfig` (src/components/lobby/useCreateLobbyConfig.js) encapsulating form state, engine clamps, password validation, and submission packaging. `CreateLobbyForm.jsx` now consumes the hook; added coverage in `tests/useCreateLobbyConfig.test.js` (engine switching, privacy validation, successful submission).
      - DONE 2025-10-20: Extracted `useLobbyOrchestration` (src/components/lobby/useLobbyOrchestration.js) to handle host detection, readiness gating, game selection wiring, seat manager toggles, and derived lists (bench, capacity, game select ID). `LobbyView.jsx` now consumes the hook; added coverage in `tests/useLobbyOrchestration.test.js` for host vs guest behaviour, async seat manager apply, and game selection propagation.
-   - **Step 3 - UI Segmentation**: Split large JSX sections into focused components under `src/components/lobby/` (e.g., `CreateLobbyBasics`, `BotStepper`, `LobbyStatusBar`, `SeatManagerPanel`). Introduce prop-driven styling so customization tokens remain centralised.
-     - ✅ 2025-10-20: Moved lobby UI into dedicated modules (`PlayersSection`, `SpectatorSection`, `HostControls`, `LobbyBanner`, `FooterActions`) and rewired `LobbyView.jsx` around them. `npm run lint` / `npm run test` confirm the refactor is stable.
-     - ✅ 2025-10-20: Carved `CreateLobbyForm.jsx` into focused presentation components stored in `src/components/createLobby/` (header/name input, engine select, visibility toggle, stepper rows, helper text, modals, footer). The form now composes these pieces while `useCreateLobbyConfig` continues to manage state; lint/test suite stays green.
-   - **Step 4 - Page Reassembly**: Rewire `CreateLobbyPage.jsx` and `LobbyView.jsx` to use the new modules, pruning obsolete state. Validate via integration tests and smoke the happy path in the browser; if regressions surface, roll back to Step 2.
-     - ✅ 2025-10-20: Rebuilt `CreateLobbyPage.jsx` around the segmented form, adding an empty-state guard when no engines are registered. `LobbyView.jsx` already consumes the extracted modules; verified `npm run lint` / `npm run test` to lock the reassembly.
+     - DONE 2025-10-21: Added `useLobbyActions` + `useSeatManagerActions` hooks, replaced console fallbacks with disabled host-only controls, and introduced `tests/useLobbyActions.test.js` / `tests/useSeatManagerActions.test.js` to verify status toggles and queued seat updates. Updated `useLobbyOrchestration` to consume the new hook while keeping integration tests green.
+   - **Step 3 - UI Segmentation**: Split large JSX sections into focused components under `src/components/lobby/` and `src/components/createLobby/`, keeping styling token-driven.
+     - NEXT 2025-10-21: Component slicing blueprint
+       - `LobbyView.jsx`
+         - Extract `LobbyHeader` (players/seat count + game select) and `LobbyActionGrid` (primary/secondary button layouts) so structure lives outside the main view while actions flow from `useLobbyActions`.
+         - Introduce a shared `LobbyActionButton` helper that owns tone/size styling and label rendering to replace repeated inline style objects.
+         - Add a lightweight `SeatManagerSummary` placeholder under the action grids that consumes seat/bench counts from `useLobbyOrchestration`, readying the UI for future status badges.
+       - `SeatManagerDialog.jsx`
+         - Split into `SeatList`, `BenchList`, and `SeatControls` children so the dialog manages draft state while children focus on presentation.
+         - Move repeated style maps into `seatManagerStyles.js` (or similar) to reduce duplication and ease theming tweaks.
+       - `CreateLobbyForm.jsx`
+         - Wrap current sections with a `CreateLobbyLayout` shell and introduce reusable `CreateLobbyAdjuster` components for player/bot steppers.
+         - Group the privacy toggle, helper copy, and password modal trigger inside a `CreateLobbyPrivacy` component to centralise the private lobby flow.
+     - Verification plan:
+       - After each extraction run `npm run lint`, `npm run test`, plus targeted suites (`tests/useLobbyActions.test.js`, `tests/useSeatManagerActions.test.js`, `tests/appFlow*.integration.test.js`).
+       - Add shallow component tests where behaviour exists (e.g., `LobbyActionButton` handles disabled + active props) and refresh the Step 0 screenshot checklist once segmentation is complete.   - **Step 4 - Page Reassembly**: Rewire `CreateLobbyPage.jsx` and `LobbyView.jsx` to use the new modules, pruning obsolete state. Validate via integration tests and smoke the happy path in the browser; if regressions surface, roll back to Step 2.
+     - ? 2025-10-20: Rebuilt `CreateLobbyPage.jsx` around the segmented form, adding an empty-state guard when no engines are registered. `LobbyView.jsx` already consumes the extracted modules; verified `npm run lint` / `npm run test` to lock the reassembly.
    - **Step 5 - Visual QA Prep**: Document Storybook/screenshot targets for the new component boundaries and note any remaining placeholder art. Flag open items in CODEx before handing off.
-     - ✅ 2025-10-20: Logged visual QA targets — capture Create Lobby (public/private, password modal), Join Lobby list states, host vs guest lobby views, and seat manager dialog. Note placeholder icons/backdrops that still need production assets. Added reminder to spin up Storybook stories mirroring these states before Phase 6 polish.
+     - ? 2025-10-20: Logged visual QA targets � capture Create Lobby (public/private, password modal), Join Lobby list states, host vs guest lobby views, and seat manager dialog. Note placeholder icons/backdrops that still need production assets. Added reminder to spin up Storybook stories mirroring these states before Phase 6 polish.
 
 2. **Testing & Tooling Enhancements (Ongoing Backbone)**
    - **Adapter-Aware Suites**: Parameterise critical tests to run against both `local` and `mock` photon adapters; document how to execute selective matrices.
@@ -203,6 +234,22 @@
 - Centralised theming tokens in `src/ui/theme.js` and migrated `AppShell` to reference them.
 - Added `src/lib/config.js` so Firebase/session/Photon services read environment settings from one place.
 - Created `scripts/app-flow-smoke.mjs` to simulate login + lobby + play using mock adapters.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

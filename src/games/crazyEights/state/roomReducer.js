@@ -8,6 +8,7 @@ const DEFAULT_SETTINGS = {
   initialBots: 0,
   rules: {},
   roomName: '',
+  password: null,
 };
 
 const STATUS_SEQUENCE = ['notReady', 'ready', 'needsTime'];
@@ -162,6 +163,8 @@ export const roomReducer = (state, action) => {
         ...payloadSettings,
         rules: { ...DEFAULT_SETTINGS.rules, ...(payloadSettings.rules ?? {}) },
       };
+      const rawPassword = typeof payloadSettings.password === 'string' ? payloadSettings.password.trim() : '';
+      config.password = rawPassword.length > 0 ? rawPassword : null;
       const providedRoomId = action.payload?.roomId;
       const normalisedRoomId = typeof providedRoomId === 'string' && providedRoomId.trim().length > 0
         ? providedRoomId.trim().toUpperCase()

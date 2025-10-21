@@ -178,7 +178,6 @@ export const roomReducer = (state, action) => {
         initialBots: Math.min(payloadSettings.initialBots ?? DEFAULT_SETTINGS.initialBots, REQUIRED_PLAYERS - 1),
         rules: { ...DEFAULT_SETTINGS.rules, ...(payloadSettings.rules ?? {}) },
       };
-
       const providedRoomId = action.payload?.roomId;
       const normalisedRoomId = typeof providedRoomId === 'string' && providedRoomId.trim().length > 0
         ? providedRoomId.trim().toUpperCase()
@@ -513,6 +512,7 @@ export const roomReducer = (state, action) => {
       const hands = { ...state.hands, [playerId]: playerHand };
 
       const trick = [...state.trick, { playerId, card }];
+      const discardSnapshot = trick;
       let lastTrick = [];
       const leadSuit = state.leadSuit ?? card.suit;
       const heartsBroken = state.heartsBroken || card.suit === 'hearts';
@@ -597,7 +597,8 @@ export const roomReducer = (state, action) => {
             scores,
             roundScores,
             gameOver,
-            lastTrick,
+            discardPile: [],
+            lastTrick: [],
           };
         }
 
@@ -615,6 +616,7 @@ export const roomReducer = (state, action) => {
           trickCaptures,
           trickCount,
           roundScores,
+          discardPile: [],
           lastTrick,
         };
       }
@@ -632,6 +634,7 @@ export const roomReducer = (state, action) => {
         history,
         banner,
         currentTurn,
+        discardPile: discardSnapshot,
         lastTrick: [],
       };
     }
@@ -741,3 +744,5 @@ export const roomReducer = (state, action) => {
       return state;
   }
 };
+
+

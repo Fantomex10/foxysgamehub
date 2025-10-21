@@ -19,7 +19,12 @@ describe('resolveEngineModules', () => {
     expect(modules.table.Component).toBe(DummyTable);
 
     const info = modules.lobby.getRoomInfo({ state: { roomName: 'Alpha', roomId: '1234' }, engine, fallbackName: 'Fallback' });
-    expect(info).toEqual({ title: 'Alpha', code: '1234' });
+    expect(info).toEqual({
+      title: 'Alpha',
+      code: '1234',
+      id: '1234',
+      password: null,
+    });
   });
 
   it('honours module overrides defined on the engine', () => {

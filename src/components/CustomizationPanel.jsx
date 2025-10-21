@@ -1,13 +1,17 @@
-﻿import React from 'react';
+import React, { useMemo } from 'react';
 import { useCustomization, useCustomizationTokens } from '../customization/useCustomization.js';
 import { useTheme } from '../ui/useTheme.js';
 import { scaleFont } from '../ui/typography.js';
 
-const maybeDisableTransition = (prefersReducedMotion, value) => (
-  prefersReducedMotion ? 'none' : value
-);
+const noop = () => {};
 
-const CustomizationPanel = () => {
+const CustomizationPanel = ({
+  isOpen = false,
+  activeCategory = null,
+  onSelectCategory = noop,
+  onBackToRoot = noop,
+  onClose = noop,
+}) => {
   const {
     state,
     available,
@@ -23,11 +27,8 @@ const CustomizationPanel = () => {
   const { availableThemes } = useTheme();
   const {
     theme,
-    cards,
     cardSkin,
-    table,
     tableSkin,
-    pieces,
     pieceSkin,
     backdrop,
     accessibility,
@@ -36,370 +37,431 @@ const CustomizationPanel = () => {
 
   const fontScale = accessibility?.fontScale ?? 1;
   const prefersReducedMotion = accessibility?.prefersReducedMotion ?? false;
-  const activePreset = available.presets.find((preset) => preset.id === presetId) ?? null;
-  const activeAccessibility = [
+
+  const { presets, cardSkins, tableSkins, pieceSkins, backdrops } = available;
+
+  const activePreset = useMemo(
+    () => presets.find((preset) => preset.id === presetId) ?? null,
+    [presets, presetId],
+  );
+
+  const themeName = useMemo(() => {
+    const match = availableThemes.find((entry) => entry.id === state.themeId);
+    return match?.name ?? 'Default theme';
+  }, [availableThemes, state.themeId]);
+
+  const accessibilityFlags = useMemo(() => ([
     accessibility?.highContrast ? 'High contrast' : null,
     accessibility?.largeText ? 'Large text' : null,
     accessibility?.reducedMotion ? 'Reduced motion' : null,
-  ].filter(Boolean);
+  ].filter(Boolean)), [accessibility]);
 
-  const containerStyle = {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: theme.spacing.md,
-    background: theme.colors.surfaceAlt,
-    border: `1px solid ${theme.colors.border}`,
-    borderRadius: theme.radii.lg,
-    padding: theme.spacing.lg,
-    boxShadow: theme.shadows.panel,
-    width: '100%',
-    maxWidth: '420px',
-    boxSizing: 'border-box',
-    fontSize: scaleFont('14px', fontScale),
-  };
+  const accessibilitySummary = accessibilityFlags.length > 0
+    ? accessibilityFlags.join(', ')
+    : 'Standard';
 
-  const previewShellStyle = {
-    position: 'relative',
-    borderRadius: theme.radii.md,
-    border: `1px solid ${theme.colors.borderSoft}`,
-    background: backdrop.tokens?.background ?? theme.colors.surface,
-    padding: theme.spacing.md,
-    overflow: 'hidden',
-    display: 'grid',
-    gap: theme.spacing.sm,
-  };
+  const rootEntries = useMemo(() => ([
+    {
+      id: 'presets',
+      label: 'Presets',
+      summary: activePreset ? activePreset.name : 'Custom mix',
+      description: 'Apply curated combinations from the Foxy team.',
+    },
+    {
+      id: 'theme',
+      label: 'Theme',
+      summary: themeName,
+      description: 'Change the overall interface palette.',
+    },
+    {
+      id: 'cards',
+      label: 'Card backs',
+      summary: cardSkin?.name ?? 'Classic deck',
+      description: 'Swap between deck styles and finishes.',
+    },
+    {
+      id: 'table',
+      label: 'Table felt',
+      summary: tableSkin?.name ?? 'Emerald felt',
+      description: 'Pick the felt and rails around the table.',
+    },
+    {
+      id: 'pieces',
+      label: 'Piece skins',
+      summary: pieceSkin?.name ?? 'Classic tokens',
+      description: 'Choose the look of player tokens.',
+    },
+    {
+      id: 'backdrops',
+      label: 'Backdrops',
+      summary: backdrop?.name ?? 'Nebula night',
+      description: 'Update the scene behind the table.',
+    },
+    {
+      id: 'accessibility',
+      label: 'Accessibility',
+      summary: accessibilitySummary,
+      description: 'Toggle contrast, text size, and motion options.',
+    },
+  ]), [
+    activePreset,
+    cardSkin,
+    tableSkin,
+    pieceSkin,
+    backdrop,
+    themeName,
+    accessibilitySummary,
+  ]);
 
-  const cardPreviewStyle = {
-    width: '72px',
-    height: '100px',
-    borderRadius: theme.radii.sm,
-    border: `1px solid ${cards.border ?? theme.colors.cardBorder}`,
-    background: cards.face,
+  const categoryDetails = useMemo(() => ({
+    presets: {
+      title: 'Presets',
+      description: 'Pick a curated combination of colors, skins, and backdrops.',
+      options: presets.map((preset) => ({
+        id: preset.id,
+        label: preset.name,
+        description: preset.description,
+        active: preset.id === state.presetId,
+        onSelect: () => applyPreset(preset.id),
+      })),
+    },
+    theme: {
+      title: 'Theme',
+      description: 'Switch the primary interface palette.',
+      options: availableThemes.map((entry) => ({
+        id: entry.id,
+        label: entry.name,
+        active: entry.id === state.themeId,
+        onSelect: () => setThemeId(entry.id),
+      })),
+    },
+    cards: {
+      title: 'Card backs',
+      description: 'Change the look of the deck and accents.',
+      options: cardSkins.map((skin) => ({
+        id: skin.id,
+        label: skin.name,
+        description: skin.description,
+        active: state.cardSkinId === skin.id,
+        onSelect: () => setCardSkin(skin.id),
+      })),
+    },
+    table: {
+      title: 'Table felt',
+      description: 'Adjust the felt color and table trim.',
+      options: tableSkins.map((skin) => ({
+        id: skin.id,
+        label: skin.name,
+        description: skin.description,
+        active: state.tableSkinId === skin.id,
+        onSelect: () => setTableSkin(skin.id),
+      })),
+    },
+    pieces: {
+      title: 'Piece skins',
+      description: 'Choose the styling for player tokens and chips.',
+      options: pieceSkins.map((skin) => ({
+        id: skin.id,
+        label: skin.name,
+        description: skin.description,
+        active: state.pieceSkinId === skin.id,
+        onSelect: () => setPieceSkin(skin.id),
+      })),
+    },
+    backdrops: {
+      title: 'Backdrops',
+      description: 'Update the background scene around the table.',
+      options: backdrops.map((entry) => ({
+        id: entry.id,
+        label: entry.name,
+        description: entry.description,
+        active: state.backdropId === entry.id,
+        onSelect: () => setBackdrop(entry.id),
+      })),
+    },
+    accessibility: {
+      title: 'Accessibility',
+      description: 'Toggle enhancements for contrast, motion, and reading comfort.',
+      options: [
+        { id: 'highContrast', label: 'High contrast' },
+        { id: 'largeText', label: 'Large text' },
+        { id: 'reducedMotion', label: 'Reduced motion' },
+      ].map((entry) => ({
+        ...entry,
+        active: Boolean(state.accessibility?.[entry.id]),
+        onSelect: () => toggleAccessibility(entry.id),
+        toggle: true,
+      })),
+    },
+  }), [
+    presets,
+    state.presetId,
+    applyPreset,
+    availableThemes,
+    state.themeId,
+    setThemeId,
+    cardSkins,
+    state.cardSkinId,
+    setCardSkin,
+    tableSkins,
+    state.tableSkinId,
+    setTableSkin,
+    pieceSkins,
+    state.pieceSkinId,
+    setPieceSkin,
+    backdrops,
+    state.backdropId,
+    setBackdrop,
+    state.accessibility,
+    toggleAccessibility,
+  ]);
+
+  if (!isOpen) {
+    return null;
+  }
+
+  const rootOverlayStyle = {
+    position: 'fixed',
+    inset: 0,
+    background: theme.overlays.scrim,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: cards.text ?? theme.colors.textPrimary,
-    fontWeight: 700,
-    fontSize: scaleFont('22px', fontScale),
+    padding: '24px',
+    zIndex: 20,
   };
 
-  const feltPreviewStyle = {
-    borderRadius: theme.radii.sm,
-    border: `1px solid ${table.border ?? theme.colors.border}`,
-    background: table.felt ?? theme.table?.felt ?? theme.colors.surfaceMuted,
-    color: table.text ?? theme.colors.textPrimary,
-    padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-    fontSize: scaleFont('12px', fontScale),
-    display: 'inline-flex',
-    alignSelf: 'flex-start',
-  };
-
-  const piecePreviewWrapperStyle = {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-  };
-
-  const piecePreviewStyle = {
-    position: 'relative',
-    width: '36px',
-    height: '36px',
-    borderRadius: '50%',
-    background: pieces.primary ?? theme.colors.accentPrimary,
-    boxShadow: `0 0 0 2px ${theme.colors.surface}`,
-  };
-
-  const pieceHighlightStyle = {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    width: '18px',
-    height: '18px',
-    borderRadius: '50%',
-    background: pieces.highlight ?? theme.colors.accentPrimary,
-    transform: 'translate(-50%, -50%)',
-    boxShadow: `0 0 0 2px ${pieces.secondary ?? theme.colors.surfaceAlt}`,
-    opacity: 0.9,
-  };
-
-  const sectionStyle = {
+  const dialogStyle = {
+    background: theme.colors.surfaceAlt,
+    border: `1px solid ${theme.colors.border}`,
+    borderRadius: theme.radii.lg,
+    boxShadow: theme.shadows.panel,
+    width: 'min(420px, 100%)',
+    maxHeight: 'min(520px, 90vh)',
     display: 'flex',
     flexDirection: 'column',
-    gap: theme.spacing.xs,
+    gap: theme.spacing.md,
+    padding: '20px',
+    boxSizing: 'border-box',
   };
 
-  const sectionHeaderStyle = {
+  const headerStyle = {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    color: theme.colors.textPrimary,
+  };
+
+  const introStyle = {
     margin: 0,
     fontSize: scaleFont('14px', fontScale),
-    letterSpacing: '0.04em',
-    textTransform: 'uppercase',
-    color: theme.colors.textMuted,
+    color: theme.colors.textSecondary,
   };
 
-  const optionGridStyle = {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+  const categoryListStyle = {
+    display: 'flex',
+    flexDirection: 'column',
     gap: theme.spacing.sm,
+    overflowY: 'auto',
+    paddingRight: '4px',
+  };
+
+  const categoryButtonStyle = {
+    width: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: '4px',
+    padding: '12px 14px',
+    borderRadius: theme.radii.md,
+    border: `1px solid ${theme.colors.border}`,
+    background: theme.colors.surfaceMuted,
+    color: theme.colors.textPrimary,
+    cursor: 'pointer',
+    transition: prefersReducedMotion ? 'none' : 'transform 0.2s ease, border-color 0.2s ease',
+    textAlign: 'left',
+  };
+
+  const categoryTitleStyle = {
+    fontSize: scaleFont('15px', fontScale),
+    fontWeight: 600,
+  };
+
+  const categorySummaryStyle = {
+    fontSize: scaleFont('13px', fontScale),
+    color: theme.colors.textSecondary,
+  };
+
+  const footerStyle = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+    flexWrap: 'wrap',
+  };
+
+  const secondaryButtonStyle = {
+    flex: '1 1 45%',
+    padding: '10px 14px',
+    borderRadius: theme.radii.md,
+    border: `1px solid ${theme.buttons.subtleBorder}`,
+    background: theme.buttons.subtleBg,
+    color: theme.buttons.subtleText,
+    cursor: 'pointer',
+    fontSize: scaleFont('14px', fontScale),
+  };
+
+  const primaryButtonStyle = {
+    flex: '1 1 45%',
+    padding: '10px 14px',
+    borderRadius: theme.radii.md,
+    border: 'none',
+    background: theme.buttons.primaryBg,
+    color: theme.buttons.primaryText,
+    cursor: 'pointer',
+    fontSize: scaleFont('14px', fontScale),
+    fontWeight: 600,
+  };
+
+  const categoryOverlayStyle = {
+    ...rootOverlayStyle,
+    zIndex: 24,
+    background: 'transparent',
+    pointerEvents: 'none',
+  };
+
+  const categoryDialogStyle = {
+    ...dialogStyle,
+    pointerEvents: 'auto',
+    boxShadow: theme.shadows.popover ?? theme.shadows.panel,
+  };
+
+  const optionsListStyle = {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing.sm,
+    overflowY: 'auto',
+    paddingRight: '4px',
   };
 
   const optionButtonStyle = (active) => ({
-    borderRadius: theme.radii.sm,
+    width: '100%',
+    padding: '12px 14px',
+    borderRadius: theme.radii.md,
     border: `1px solid ${active ? theme.colors.accentPrimary : theme.colors.border}`,
     background: active ? theme.colors.accentPrimarySoft : theme.colors.surfaceMuted,
     color: theme.colors.textPrimary,
-    padding: '12px',
     display: 'flex',
     flexDirection: 'column',
     gap: '4px',
     textAlign: 'left',
     cursor: 'pointer',
-    transition: maybeDisableTransition(prefersReducedMotion, 'transform 0.2s ease, border-color 0.2s ease'),
-    fontSize: scaleFont('13px', fontScale),
+    transition: prefersReducedMotion ? 'none' : 'transform 0.2s ease, border-color 0.2s ease',
   });
 
-  const toggleButtonStyle = (active) => ({
-    borderRadius: theme.radii.sm,
-    border: `1px solid ${active ? theme.colors.accentPrimary : theme.colors.border}`,
-    background: active ? theme.colors.accentPrimarySoft : theme.colors.surfaceMuted,
-    color: theme.colors.textPrimary,
-    padding: '10px 12px',
-    cursor: 'pointer',
-    fontSize: scaleFont('14px', fontScale),
-  });
-
-  const resetButtonStyle = {
-    borderRadius: theme.radii.sm,
-    border: `1px solid ${theme.colors.borderSoft}`,
-    background: theme.colors.surfaceMuted,
-    color: theme.colors.textSecondary,
-    padding: '10px 12px',
-    cursor: 'pointer',
-    alignSelf: 'flex-start',
+  const optionLabelStyle = {
+    fontSize: scaleFont('15px', fontScale),
+    fontWeight: 600,
   };
 
-  return (
-    <aside style={containerStyle}>
-      <div style={previewShellStyle}>
-        {backdrop.tokens?.overlay && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              pointerEvents: 'none',
-              background: backdrop.tokens.overlay,
-            }}
-          />
-        )}
-        <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <h2 style={{ margin: 0, fontSize: scaleFont('18px', fontScale), color: theme.colors.textPrimary }}>Your style</h2>
-              <p style={{ margin: '4px 0 0', fontSize: scaleFont('13px', fontScale), color: theme.colors.textSecondary }}>
-                {cardSkin.name} / {tableSkin.name}
-              </p>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', fontSize: scaleFont('12px', fontScale), color: theme.colors.textMuted }}>
-              <span>Pieces: {pieceSkin.name}</span>
-              <span>Backdrop: {backdrop.name}</span>
-            </div>
+  const optionDescriptionStyle = {
+    fontSize: scaleFont('13px', fontScale),
+    color: theme.colors.textSecondary,
+  };
+
+  const renderRoot = () => (
+    <div style={rootOverlayStyle} role="dialog" aria-modal="true" aria-label="Customization menu">
+      <div style={dialogStyle}>
+        <div style={headerStyle}>
+          <h2 style={{ margin: 0, fontSize: scaleFont('20px', fontScale) }}>Customization</h2>
+          <p style={introStyle}>
+            Tune the table, cards, and accessibility settings. Choose a section below to drill down.
+          </p>
+        </div>
+
+        <div style={categoryListStyle}>
+          {rootEntries.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              onClick={() => onSelectCategory(entry.id)}
+              style={categoryButtonStyle}
+            >
+              <span style={categoryTitleStyle}>{entry.label}</span>
+              <span style={categorySummaryStyle}>{entry.summary}</span>
+              <span style={{ ...categorySummaryStyle, fontSize: scaleFont('12px', fontScale) }}>
+                {entry.description}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <div style={footerStyle}>
+          <button type="button" onClick={reset} style={secondaryButtonStyle}>
+            Reset defaults
+          </button>
+          <button type="button" onClick={onClose} style={primaryButtonStyle}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderCategory = () => {
+    if (!activeCategory) {
+      return null;
+    }
+
+    const descriptor = categoryDetails[activeCategory];
+    if (!descriptor) {
+      return null;
+    }
+
+    return (
+      <div style={categoryOverlayStyle} role="dialog" aria-modal="true" aria-label={descriptor.title}>
+        <div style={categoryDialogStyle}>
+          <div style={headerStyle}>
+            <h3 style={{ margin: 0, fontSize: scaleFont('18px', fontScale) }}>{descriptor.title}</h3>
+            <p style={introStyle}>{descriptor.description}</p>
           </div>
-          <div style={{ display: 'flex', gap: theme.spacing.md, alignItems: 'center', position: 'relative', flexWrap: 'wrap' }}>
-            <div style={cardPreviewStyle}>AS</div>
-            <span style={feltPreviewStyle}>Felt</span>
-            <div style={piecePreviewWrapperStyle}>
-              <div style={piecePreviewStyle}>
-                <span style={pieceHighlightStyle} />
-              </div>
-              <span style={{ fontSize: scaleFont('12px', fontScale), color: theme.colors.textSecondary }}>Pieces</span>
-            </div>
+
+          <div style={optionsListStyle}>
+            {descriptor.options.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={option.onSelect}
+                style={optionButtonStyle(option.active)}
+                aria-pressed={option.toggle ? option.active : undefined}
+                data-active={option.active}
+              >
+                <span style={optionLabelStyle}>{option.label}</span>
+                {option.description && (
+                  <span style={optionDescriptionStyle}>{option.description}</span>
+                )}
+              </button>
+            ))}
           </div>
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: theme.spacing.xs,
-              justifyContent: 'space-between',
-              fontSize: scaleFont('12px', fontScale),
-              color: theme.colors.textMuted,
-            }}
-          >
-            <span>Preset: {activePreset ? activePreset.name : 'Custom mix'}</span>
-            <span>
-              Accessibility: {activeAccessibility.length > 0 ? activeAccessibility.join(', ') : 'Default'}
-            </span>
+
+          <div style={footerStyle}>
+            <button type="button" onClick={onBackToRoot} style={secondaryButtonStyle}>
+              Back
+            </button>
+            <button type="button" onClick={onClose} style={primaryButtonStyle}>
+              OK
+            </button>
           </div>
         </div>
       </div>
+    );
+  };
 
-      <section style={sectionStyle}>
-        <h3 style={sectionHeaderStyle}>Presets</h3>
-        <div style={optionGridStyle}>
-          {available.presets.map((preset) => {
-            const active = presetId === preset.id;
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => applyPreset(preset.id)}
-                style={optionButtonStyle(active)}
-                aria-pressed={active}
-                data-active={active}
-              >
-                <strong>{preset.name}</strong>
-                <span style={{ fontSize: scaleFont('12px', fontScale), color: theme.colors.textSecondary }}>{preset.description}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section style={sectionStyle}>
-        <h3 style={sectionHeaderStyle}>Themes</h3>
-        <div style={optionGridStyle}>
-          {availableThemes?.map((entry) => {
-            const active = state.themeId === entry.id;
-            return (
-              <button
-                key={entry.id}
-                type="button"
-                onClick={() => setThemeId(entry.id)}
-                style={optionButtonStyle(active)}
-                aria-pressed={active}
-                data-active={active}
-              >
-                <strong>{entry.name}</strong>
-                <span style={{ fontSize: scaleFont('12px', fontScale), color: theme.colors.textSecondary }}>Palette</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section style={sectionStyle}>
-        <h3 style={sectionHeaderStyle}>Card backs</h3>
-        <div style={optionGridStyle}>
-          {available.cardSkins.map((skin) => {
-            const active = state.cardSkinId === skin.id;
-            return (
-              <button
-                key={skin.id}
-                type="button"
-                onClick={() => setCardSkin(skin.id)}
-                style={optionButtonStyle(active)}
-                aria-pressed={active}
-                data-active={active}
-              >
-                <strong>{skin.name}</strong>
-                <span style={{ fontSize: scaleFont('12px', fontScale), color: theme.colors.textSecondary }}>{skin.description}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section style={sectionStyle}>
-        <h3 style={sectionHeaderStyle}>Table felt</h3>
-        <div style={optionGridStyle}>
-          {available.tableSkins.map((skin) => {
-            const active = state.tableSkinId === skin.id;
-            return (
-              <button
-                key={skin.id}
-                type="button"
-                onClick={() => setTableSkin(skin.id)}
-                style={optionButtonStyle(active)}
-                aria-pressed={active}
-                data-active={active}
-              >
-                <strong>{skin.name}</strong>
-                <span style={{ fontSize: scaleFont('12px', fontScale), color: theme.colors.textSecondary }}>{skin.description}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section style={sectionStyle}>
-        <h3 style={sectionHeaderStyle}>Piece skins</h3>
-        <div style={optionGridStyle}>
-          {available.pieceSkins.map((skin) => {
-            const active = state.pieceSkinId === skin.id;
-            return (
-              <button
-                key={skin.id}
-                type="button"
-                onClick={() => setPieceSkin(skin.id)}
-                style={optionButtonStyle(active)}
-                aria-pressed={active}
-                data-active={active}
-              >
-                <strong>{skin.name}</strong>
-                <span style={{ fontSize: scaleFont('12px', fontScale), color: theme.colors.textSecondary }}>{skin.description}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section style={sectionStyle}>
-        <h3 style={sectionHeaderStyle}>Backdrops</h3>
-        <div style={optionGridStyle}>
-          {available.backdrops.map((entry) => {
-            const active = state.backdropId === entry.id;
-            return (
-              <button
-                key={entry.id}
-                type="button"
-                onClick={() => setBackdrop(entry.id)}
-                style={optionButtonStyle(active)}
-                aria-pressed={active}
-                data-active={active}
-              >
-                <strong>{entry.name}</strong>
-                <span style={{ fontSize: scaleFont('12px', fontScale), color: theme.colors.textSecondary }}>{entry.description}</span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section style={sectionStyle}>
-        <h3 style={sectionHeaderStyle}>Accessibility</h3>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.sm }}>
-          {[
-            { id: 'highContrast', label: 'High contrast' },
-            { id: 'reducedMotion', label: 'Reduced motion' },
-            { id: 'largeText', label: 'Large text' },
-          ].map((entry) => {
-            const active = Boolean(accessibility?.[entry.id]);
-            return (
-              <button
-                key={entry.id}
-                type="button"
-                onClick={() => toggleAccessibility(entry.id)}
-                style={toggleButtonStyle(active)}
-                aria-pressed={active}
-                data-active={active}
-              >
-                {entry.label}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <button type="button" onClick={reset} style={resetButtonStyle}>
-        Reset to theme defaults
-      </button>
-    </aside>
+  return (
+    <>
+      {renderRoot()}
+      {renderCategory()}
+    </>
   );
 };
 
 export default CustomizationPanel;
-
-
-
-
-
-
-

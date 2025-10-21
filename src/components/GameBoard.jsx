@@ -10,8 +10,6 @@ import { getCurrentTurnPlaceholder } from '../ui/textFallbacks.js';
 const prettySuit = (suit) => (suit ? suit.charAt(0).toUpperCase() + suit.slice(1) : 'Any suit');
 
 const GameBoard = ({
-  roomId,
-  roomName,
   players,
   userId,
   drawPile,
@@ -96,7 +94,7 @@ const GameBoard = ({
   };
 
   return (
-    <TableLayout title={roomName ?? `Room ${roomId}`}>
+    <TableLayout>
       <section style={containerStyle}>
         <div style={{ ...panelStyle, width: isCompact ? '100%' : 'auto' }}>
           <h3 style={{ margin: 0, fontSize: scaleFont('16px', fontScale), color: theme.colors.textPrimary }}>Turn order</h3>

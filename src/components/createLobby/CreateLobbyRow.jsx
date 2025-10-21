@@ -1,3 +1,4 @@
+import React, { useMemo } from 'react';
 import { useCustomizationTokens } from '../../customization/useCustomization.js';
 import { scaleFont } from '../../ui/typography.js';
 
@@ -5,30 +6,40 @@ export const CreateLobbyRow = ({ label, children, alignTop = false, contentStyle
   const { theme, accessibility } = useCustomizationTokens();
   const fontScale = accessibility?.fontScale ?? 1;
 
-  const rowStyle = {
-    display: 'flex',
-    alignItems: alignTop ? 'flex-start' : 'center',
-    justifyContent: 'space-between',
-    gap: '6px',
-    color: theme.colors.textSecondary,
-    fontSize: scaleFont('15px', fontScale),
-  };
+  const rowStyle = useMemo(
+    () => ({
+      display: 'flex',
+      alignItems: alignTop ? 'flex-start' : 'center',
+      justifyContent: 'space-between',
+      gap: theme.spacing.xs,
+      color: theme.colors.textSecondary,
+      fontSize: scaleFont('15px', fontScale),
+    }),
+    [alignTop, theme, fontScale],
+  );
 
-  const labelStyle = {
-    minWidth: '100px',
-    color: theme.colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: '0.06em',
-    fontSize: scaleFont('11px', fontScale),
-  };
+  const labelStyle = useMemo(
+    () => ({
+      minWidth: '110px',
+      color: theme.colors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: '0.06em',
+      fontSize: scaleFont('11px', fontScale),
+      fontWeight: 600,
+    }),
+    [theme, fontScale],
+  );
 
-  const wrapperStyle = {
-    flex: 1,
-    display: 'flex',
-    gap: '6px',
-    justifyContent: 'flex-end',
-    ...(contentStyle ?? {}),
-  };
+  const wrapperStyle = useMemo(
+    () => ({
+      flex: 1,
+      display: 'flex',
+      gap: theme.spacing.xs,
+      justifyContent: 'flex-end',
+      ...(contentStyle ?? {}),
+    }),
+    [theme.spacing.xs, contentStyle],
+  );
 
   return (
     <div style={rowStyle}>

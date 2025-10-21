@@ -10,56 +10,49 @@ const getPlayerStatus = (player) => {
   return player.isReady ? 'ready' : 'notReady';
 };
 
-export const PlayersSection = ({
-  players,
-  userId,
-  seatCapacity,
-  isHost,
-  isCompact,
-  gameSelectId,
-  gameOptions,
-  currentGameId,
-  showGameSelect,
-  onSelectGame,
-  onSetStatus,
-  onCycleStatus,
-}) => {
+export const PlayersSection = ({ players, userId, isCompact }) => {
   const { theme, accessibility } = useCustomizationTokens();
   const fontScale = accessibility?.fontScale ?? 1;
 
-  const headerStyle = useMemo(() => ({
+  const listStyle = useMemo(() => {
+    if (isCompact) {
+      return {
+        display: 'grid',
+        gap: '6px',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+        justifyItems: 'stretch',
+      };
+    }
+    return {
+      display: 'grid',
+      gap: '8px',
+      gridTemplateColumns: 'repeat(2, minmax(0, 180px))',
+      justifyContent: 'center',
+      justifyItems: 'stretch',
+      maxWidth: '380px',
+      margin: '0 auto',
+    };
+  }, [isCompact]);
+
+  const playerRowStyle = (isSelf, isReady) => ({
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: isCompact ? theme.spacing.sm : theme.spacing.md,
-    flexWrap: 'wrap',
-    marginBottom: isCompact ? theme.spacing.xs : theme.spacing.sm,
-  }), [isCompact, theme]);
-
-  const listStyle = useMemo(() => ({
-    display: 'grid',
-    gap: theme.spacing.sm,
-    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
-  }), [theme]);
-
-  const playerRowStyle = useMemo(() => (
-    (isSelf, isReady) => ({
-      display: 'flex',
-      alignItems: 'center',
-      gap: theme.spacing.sm,
-      padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-      borderRadius: theme.radii.sm,
-      border: `1px solid ${isSelf ? theme.colors.accentPrimary : theme.colors.borderSubtle}`,
-      background: isReady ? theme.colors.accentSuccessSoft : theme.colors.surfaceMuted,
-      color: theme.colors.textPrimary,
-      minWidth: 0,
-    })
-  ), [theme]);
+    gap: '6px',
+    padding: '5px 9px',
+    borderRadius: theme.radii.sm,
+    border: `1px solid ${isSelf ? theme.colors.accentPrimary : theme.colors.borderSubtle}`,
+    background: isReady ? theme.colors.accentSuccessSoft : theme.colors.surfaceMuted,
+    color: theme.colors.textPrimary,
+    minWidth: 0,
+    width: '100%',
+    minHeight: '52px',
+    boxSizing: 'border-box',
+  });
 
   const playerInfoStyle = useMemo(() => ({
     display: 'flex',
     flexDirection: 'column',
-    gap: '3px',
+    gap: '1px',
     flex: '1 1 auto',
     minWidth: 0,
   }), []);
@@ -85,67 +78,8 @@ export const PlayersSection = ({
     whiteSpace: 'nowrap',
   }), [theme, fontScale]);
 
-  const selectWrapperStyle = useMemo(() => ({
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-    marginLeft: 'auto',
-  }), [theme]);
-
-  const selectStyle = useMemo(() => ({
-    padding: isCompact ? '6px 8px' : '6px 10px',
-    borderRadius: theme.radii.sm,
-    border: `1px solid ${theme.colors.border}`,
-    background: theme.colors.surfaceMuted,
-    color: theme.colors.textPrimary,
-    fontSize: scaleFont('13px', fontScale),
-    fontWeight: 500,
-    cursor: 'pointer',
-  }), [isCompact, theme, fontScale]);
-
   return (
     <section>
-      <div style={headerStyle}>
-        <h3
-          style={{
-            margin: 0,
-            fontSize: scaleFont('17px', fontScale),
-            color: theme.colors.textSecondary,
-            letterSpacing: '0.04em',
-            textTransform: 'uppercase',
-          }}
-        >
-          Players ({players.length}/{seatCapacity})
-        </h3>
-        {showGameSelect && (
-          <div style={selectWrapperStyle}>
-            <span
-              style={{
-                fontSize: scaleFont('10px', fontScale),
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                color: theme.colors.textMuted,
-              }}
-            >
-              Game
-            </span>
-            <select
-              id={gameSelectId}
-              value={currentGameId}
-              onChange={(event) => onSelectGame?.(event.target.value)}
-              style={selectStyle}
-              aria-label="Select game"
-            >
-              {gameOptions.map((game) => (
-                <option key={game.id} value={game.id}>
-                  {game.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
-
       <div style={listStyle}>
         {players.map((player) => {
           const metaLabels = [];
@@ -153,18 +87,6 @@ export const PlayersSection = ({
           if (player.isHost) metaLabels.push('Host');
           if (player.isBot) metaLabels.push('Bot');
           const status = getPlayerStatus(player);
-          const canChangeStatus = player.id === userId || (isHost && player.isBot);
-
-          const handleSelect = (nextStatus) => {
-            if (!canChangeStatus || !onSetStatus) return;
-            onSetStatus(player.id, nextStatus);
-          };
-
-          const handleCycle = () => {
-            if (!canChangeStatus) return;
-            onCycleStatus?.(player.id);
-          };
-
           return (
             <div key={player.id} style={playerRowStyle(player.id === userId, player.isReady)}>
               <div style={playerInfoStyle}>
@@ -173,9 +95,7 @@ export const PlayersSection = ({
               </div>
               <StatusControl
                 status={status}
-                interactive={canChangeStatus}
-                onSelect={onSetStatus ? handleSelect : null}
-                onCycle={!onSetStatus ? handleCycle : null}
+                interactive={false}
                 playerName={player.name}
               />
             </div>

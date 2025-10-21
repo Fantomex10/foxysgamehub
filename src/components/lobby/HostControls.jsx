@@ -52,8 +52,8 @@ export const HostControls = ({
   }), [theme, fontScale, transitionStyle]);
 
   return (
-    <section style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-      <div style={{ display: 'flex', gap: theme.spacing.xs, flexWrap: 'wrap' }}>
+    <section style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: theme.spacing.xs, flexWrap: 'wrap', justifyContent: 'center' }}>
         <button
           type="button"
           onClick={onAddBot}
@@ -64,7 +64,7 @@ export const HostControls = ({
             color: theme.colors.accentSuccess,
           }}
         >
-          Add bot
+          + Bot
         </button>
         <button
           type="button"
@@ -76,7 +76,7 @@ export const HostControls = ({
             color: theme.colors.accentDanger,
           }}
         >
-          Remove bot
+          - Bot
         </button>
         <button
           type="button"
@@ -95,13 +95,14 @@ export const HostControls = ({
         </button>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, maxWidth: '280px' }}>
+      <div style={{ display: 'flex', gap: theme.spacing.xs, justifyContent: 'center', flexWrap: 'wrap', width: '100%' }}>
         <button
           type="button"
           onClick={onStart}
           disabled={!canStart}
           style={{
             ...primaryButtonStyle,
+            width: '140px',
             opacity: canStart ? 1 : 0.4,
             cursor: canStart ? 'pointer' : 'not-allowed',
           }}
@@ -112,7 +113,7 @@ export const HostControls = ({
           <button
             type="button"
             onClick={onConfigureTable}
-            style={outlineButtonStyle}
+            style={{ ...outlineButtonStyle, width: '140px' }}
           >
             Table options
           </button>

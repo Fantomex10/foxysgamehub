@@ -9,7 +9,7 @@ export const useCreateLobbyConfig = ({
   defaultEngineId,
   onCreate,
 }) => {
-  const [roomName, setRoomName] = useState('Friendly Match');
+  const [roomName, setRoomName] = useState('');
   const [engineId, setEngineId] = useState(defaultEngineId);
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [botCount, setBotCount] = useState(1);
@@ -104,7 +104,7 @@ export const useCreateLobbyConfig = ({
     }
 
     onCreate?.({
-      roomName: roomName.trim() || 'Friendly Match',
+      roomName: roomName.trim(),
       engineId,
       settings: {
         maxPlayers: requiredPlayers ?? Number(maxPlayers),

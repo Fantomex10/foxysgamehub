@@ -10,33 +10,49 @@ const Card = ({ card, onClick, disabled = false }) => {
   const fallbackFace = 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.85))';
 
   const baseStyle = {
-    width: '88px',
-    height: '128px',
+    position: 'relative',
+    width: '82px',
+    height: '118px',
     borderRadius: theme.radii.sm,
     border: `1px solid ${cards.border ?? theme.colors.cardBorder}`,
     background: cards.face ?? fallbackFace,
+    boxShadow: theme.shadows?.card ?? '0 4px 14px rgba(15, 23, 42, 0.28)',
+    padding: '12px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  };
+
+  const cornerContainer = {
+    position: 'absolute',
     display: 'flex',
     flexDirection: 'column',
-    justifyContent: 'space-between',
-    padding: '12px',
-  };
-
-  const smallGlyphStyle = {
+    alignItems: 'center',
+    lineHeight: 1,
+    gap: '3px',
+    fontSize: scaleFont('15px', fontScale),
     fontWeight: 600,
-    fontSize: scaleFont('18px', fontScale),
     color: cards.text ?? theme.colors.textPrimary,
+    letterSpacing: '0.02em',
   };
 
-  const suitStyle = {
-    fontSize: scaleFont('48px', fontScale),
+  const centerGlyphStyle = {
+    fontSize: scaleFont('44px', fontScale),
     fontWeight: 700,
     lineHeight: 1,
     color: cards.accent ?? theme.colors.accentPrimary,
+    userSelect: 'none',
+    pointerEvents: 'none',
+  };
+
+  const smallSuitStyle = {
+    fontSize: scaleFont('13px', fontScale),
   };
 
   if (!card) {
     return (
-      <div style={{ ...baseStyle, alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+      <div style={{ ...baseStyle, opacity: 0.4 }}>
         <span style={{ fontSize: scaleFont('14px', fontScale), color: theme.colors.textMuted }}>Empty</span>
       </div>
     );
@@ -69,9 +85,32 @@ const Card = ({ card, onClick, disabled = false }) => {
       onMouseUp={handleReset}
       onMouseLeave={handleReset}
     >
-      <span style={{ ...smallGlyphStyle, color: accent }}>{card.rank}</span>
-      <span style={{ ...suitStyle, color: accent }}>{glyph}</span>
-      <span style={{ ...smallGlyphStyle, color: accent, alignSelf: 'flex-end', transform: 'rotate(180deg)' }}>{card.rank}</span>
+      <span
+        style={{
+          ...cornerContainer,
+          color: accent,
+          top: '10px',
+          left: '10px',
+        }}
+      >
+        <span>{card.rank}</span>
+        <span style={{ ...smallSuitStyle }}>{glyph}</span>
+      </span>
+      <span style={{ ...centerGlyphStyle, color: accent }}>
+        {glyph}
+      </span>
+      <span
+        style={{
+          ...cornerContainer,
+          color: accent,
+          bottom: '10px',
+          right: '10px',
+          transform: 'rotate(180deg)',
+        }}
+      >
+        <span>{card.rank}</span>
+        <span style={{ ...smallSuitStyle }}>{glyph}</span>
+      </span>
     </button>
   );
 };

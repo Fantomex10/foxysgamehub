@@ -1,5 +1,5 @@
 import { AppLayout } from '../components/AppLayout.jsx';
-import { getRoomCode } from '../../ui/textFallbacks.js';
+import { getLobbyCategory, getRoomCode } from '../../ui/textFallbacks.js';
 import { useAppState } from '../context/useAppState.js';
 
 export const RoomPage = () => {
@@ -33,6 +33,9 @@ export const RoomPage = () => {
     );
   }
 
+  const lobbyBreadcrumbs = getLobbyCategory(state.roomSettings?.visibility);
+  const omitRoomTitle = (info) => (info ? { ...info, title: undefined } : undefined);
+
   if (state.phase === 'roomLobby') {
     const lobbyModule = engineModules?.lobby ?? {};
     const lobbyModuleContext = {
@@ -58,9 +61,10 @@ export const RoomPage = () => {
 
     return (
       <AppLayout
+        breadcrumbs={lobbyBreadcrumbs}
         menuSections={lobbyMenuSections}
         profileSections={lobbyProfileSections}
-        roomInfo={lobbyRoomInfo}
+        roomInfo={omitRoomTitle(lobbyRoomInfo)}
       >
         <LobbyComponent
           roomId={state.roomId}
@@ -75,7 +79,6 @@ export const RoomPage = () => {
           seatRules={engine.metadata?.playerConfig}
           roomSettings={state.roomSettings}
           onSelectGame={roomActions.quickSelectGame}
-          onCycleStatus={(playerId) => roomActions.toggleReady(playerId)}
           onSetStatus={(playerId, nextStatus) => roomActions.setPlayerStatus(playerId, nextStatus)}
           onUpdateSeats={(layout) => roomActions.updateSeatLayout(layout)}
           onStart={roomActions.startGame}
@@ -113,9 +116,10 @@ export const RoomPage = () => {
 
   return (
     <AppLayout
+      breadcrumbs={lobbyBreadcrumbs}
       menuSections={tableMenuSections}
       profileSections={tableProfileSections}
-      roomInfo={tableRoomInfo}
+      roomInfo={omitRoomTitle(tableRoomInfo)}
     >
       <>
         {TableComponent ? (

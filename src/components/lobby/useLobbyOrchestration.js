@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
+import { useSeatManagerActions } from './useSeatManagerActions.js';
 
 const availableGamesFrom = (gameOptions) => (Array.isArray(gameOptions) ? gameOptions : []);
 
@@ -16,21 +17,6 @@ const shouldShowGameSelect = (isHost, options, onSelectGame) => (
 const benchListFrom = (spectators) => (Array.isArray(spectators) ? spectators : []);
 
 const seatCapacityFrom = (roomSettings, players) => roomSettings?.maxPlayers ?? players.length;
-
-const shouldEnableSeatManager = (isHost, onUpdateSeats) => isHost && typeof onUpdateSeats === 'function';
-
-const handleSeatManagerApplyFactory = (onUpdateSeats, onClose) => (config) => {
-  if (typeof onUpdateSeats !== 'function') {
-    onClose();
-    return;
-  }
-  const result = onUpdateSeats(config);
-  if (result && typeof result.then === 'function') {
-    result.finally(onClose);
-  } else {
-    onClose();
-  }
-};
 
 export const useLobbyOrchestration = ({
   roomId,
@@ -84,22 +70,13 @@ export const useLobbyOrchestration = ({
     [spectators],
   );
 
-  const [seatManagerOpen, setSeatManagerOpen] = useState(false);
-  const seatManagerEnabled = shouldEnableSeatManager(isHost, onUpdateSeats);
-
-  const openSeatManager = useCallback(() => {
-    if (!seatManagerEnabled) return;
-    setSeatManagerOpen(true);
-  }, [seatManagerEnabled]);
-
-  const closeSeatManager = useCallback(() => {
-    setSeatManagerOpen(false);
-  }, []);
-
-  const handleSeatManagerApply = useMemo(
-    () => handleSeatManagerApplyFactory(onUpdateSeats, closeSeatManager),
-    [onUpdateSeats, closeSeatManager],
-  );
+  const {
+    seatManagerEnabled,
+    seatManagerOpen,
+    openSeatManager,
+    closeSeatManager,
+    handleSeatManagerApply,
+  } = useSeatManagerActions({ isHost, onUpdateSeats });
 
   const gameSelectId = useMemo(
     () => (roomId ? `lobby-game-select-${roomId}` : 'lobby-game-select'),

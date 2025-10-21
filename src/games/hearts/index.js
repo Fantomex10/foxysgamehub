@@ -31,7 +31,7 @@ export const heartsEngine = createGameEngine({
         const readyCount = state.players.filter((player) => player.isReady).length;
         return [
           { type: 'highlight', label: 'Hearts lobby', value: state.roomName ?? gameDisplayName },
-          { label: 'Room code', value: state.roomId ?? '—' },
+          { label: 'Room code', value: state.roomId ?? '\u2014' },
           { label: 'Ready players', value: `${readyCount}/4` },
           { label: 'Spectators', value: String(state.spectators?.length ?? 0) },
           { type: 'divider', key: 'hearts-lobby-divider' },
@@ -46,7 +46,10 @@ export const heartsEngine = createGameEngine({
         return [
           { type: 'highlight', label: 'Match', value: state.roomName ?? gameDisplayName },
           { label: 'Round', value: `#${state.roundNumber || 1}` },
-          { label: 'Hearts broken', value: state.heartsBroken ? 'Yes' : 'No' },
+          {
+            label: 'Hearts',
+            value: state.heartsBroken ? '\u{1F494} Broken' : '\u2661 Safe',
+          },
           { label: 'Current leader', value: state.banner || 'In progress' },
           { type: 'divider', key: 'hearts-table-divider' },
           { label: 'Display name', value: playerDisplayName },

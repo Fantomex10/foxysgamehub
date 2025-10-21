@@ -8,6 +8,7 @@ const HubMenu = ({
   onPlayWithFriends,
   onMatchmaking,
   onDailyDraw,
+  onCustomize,
 }) => {
   const [modalMessage, setModalMessage] = useState(null);
   const { theme, accessibility } = useCustomizationTokens();
@@ -23,12 +24,12 @@ const HubMenu = ({
   };
 
   const containerStyle = useMemo(() => ({
-    maxWidth: '640px',
+    maxWidth: '560px',
     margin: '0 auto',
     background: theme.colors.surface,
     border: `1px solid ${theme.colors.border}`,
     borderRadius: theme.radii.lg,
-    padding: '28px 24px',
+    padding: '20px 18px',
     boxShadow: theme.shadows.panel,
     display: 'flex',
     flexDirection: 'column',
@@ -42,10 +43,13 @@ const HubMenu = ({
     display: 'flex',
     flexDirection: 'column',
     gap: theme.spacing.sm,
+    alignItems: 'center',
   }), [theme.spacing.sm]);
 
+  const buttonWidth = 'min(280px, 100%)';
+
   const primaryButton = {
-    padding: '14px 18px',
+    padding: '10px 14px',
     borderRadius: theme.radii.md,
     border: 'none',
     background: theme.buttons.primaryBg,
@@ -54,10 +58,11 @@ const HubMenu = ({
     fontWeight: 700,
     cursor: 'pointer',
     transition: prefersReducedMotion ? 'none' : 'transform 0.2s ease, opacity 0.2s ease',
+    width: buttonWidth,
   };
 
   const accentButton = {
-    padding: '14px 18px',
+    padding: '10px 14px',
     borderRadius: theme.radii.md,
     border: `1px solid ${theme.buttons.subtleBorder}`,
     background: theme.buttons.ghostBg,
@@ -65,10 +70,11 @@ const HubMenu = ({
     fontSize: scaleFont('18px', fontScale),
     fontWeight: 600,
     cursor: 'pointer',
+    width: buttonWidth,
   };
 
   const baseButton = {
-    padding: '13px 18px',
+    padding: '10px 14px',
     borderRadius: theme.radii.md,
     border: `1px solid ${theme.buttons.subtleBorder}`,
     background: theme.buttons.subtleBg,
@@ -76,6 +82,7 @@ const HubMenu = ({
     fontSize: scaleFont('17px', fontScale),
     fontWeight: 600,
     cursor: 'pointer',
+    width: buttonWidth,
   };
 
   const warningButton = {
@@ -147,6 +154,16 @@ const HubMenu = ({
         >
           Enter Daily Draw
         </button>
+
+        {onCustomize && (
+          <button
+            type="button"
+            onClick={onCustomize}
+            style={baseButton}
+          >
+            Customization
+          </button>
+        )}
       </div>
 
       {modalMessage && (
